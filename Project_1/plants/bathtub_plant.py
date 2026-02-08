@@ -1,15 +1,15 @@
 import jax.numpy as jnp
+from plants.plant import Plant
 
 
-class Bathtub_Plant:
-    def __init__(self, A=10.0, H0=1.0, G=9.8, noise_range=(-0.01, 0.01), timesteps=100):
+class Bathtub_Plant(Plant):
+    def __init__(self, A=10.0, C=0.1, H0=1.0, G=9.8, noise_range=(-0.01, 0.01)):
         self.A = A
-        self.C = self.A / 100
+        self.C = C
         self.H0 = H0
         self.G = G
         self.target = H0
         self.noise_range = noise_range
-        self.nn_input_scale = [self.H0, self.H0 * timesteps, 1.0]
 
     def update(self, U, D, state):
         """
@@ -17,6 +17,7 @@ class Bathtub_Plant:
         new water level value for the plant.
 
         U is controller output
+        C is the cross-sectional area of the drain
         D is random noise
         V is velocity
         Q is flow rate
@@ -30,6 +31,9 @@ class Bathtub_Plant:
         B = U + D - Q
 
         new_h = current_h + (B / self.A)
+
+        # This is needed to prevent the water level from going negative,
+        # which would cause issues with the square root in the velocity calculation.
         new_h = jnp.maximum(new_h, 0.0001)
 
         return jnp.array([new_h])

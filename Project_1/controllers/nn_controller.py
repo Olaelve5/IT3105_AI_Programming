@@ -7,10 +7,19 @@ class NN_Controller:
     def __init__(
         self,
         layers=[(None, 3), ("relu", 10), (None, 1)],
-        input_scale=[10.0, 1200.0, 1.0],
+        input_scale=[1.0, 1.0, 1.0],
+        weight_init_range=None,
+        bias_init_range=None,
     ):
         self.layers = layers
-        self.input_scale = jnp.array(input_scale)
+
+        if input_scale is None:
+            self.input_scale = jnp.array([1.0, 1.0, 1.0])
+        else:
+            self.input_scale = jnp.array(input_scale)
+
+        self.weight_init_range = weight_init_range
+        self.bias_init_range = bias_init_range
 
         self.act_funcs = {
             "relu": jnn.relu,
@@ -32,11 +41,31 @@ class NN_Controller:
             in_dim = self.layers[i][1]
             out_dim = self.layers[i + 1][1]
 
-            scale = jnp.sqrt(1.0 / in_dim)
+            if self.weight_init_range is None:
+                # Xavier initialization
+                # Initialize weights in range [-sqrt(1/in_dim), sqrt(1/in_dim)]
+                scale = jnp.sqrt(1.0 / in_dim)
+                w_min, w_max = -scale, scale
+            else:
+                # If provided, use the specified weight initialization range
+                w_min, w_max = self.weight_init_range
+
             weights = jrandom.uniform(
-                keys[i], shape=(in_dim, out_dim), minval=-scale, maxval=scale
+                keys[i], shape=(in_dim, out_dim), minval=w_min, maxval=w_max
             )
-            biases = jnp.zeros((out_dim,))
+
+            # Random initialization if provided, otherwise zero
+            if self.bias_init_range is None:
+                biases = jnp.zeros((out_dim,))
+            else:
+                # Need to split key again for bias initialization
+                key_b = jrandom.split(keys[i])[0]
+                biases = jrandom.uniform(
+                    key_b,
+                    shape=(out_dim,),
+                    minval=self.bias_init_range[0],
+                    maxval=self.bias_init_range[1],
+                )
 
             params.append({"w": weights, "b": biases})
 

@@ -1,25 +1,22 @@
 import jax
 import jax.numpy as jnp
 import jax.random as jrandom
-import pickle
-from bathtub_plant import Bathtub_Plant
-from cournot_plant import Cournot_Plant
-from cruise_control_plant import Cruise_Control_Plant
-from pid_controller import PID_Controller
-from nn_controller import NN_Controller
-from plot_utils import plot_mse, plot_params
+from controllers.nn_controller import NN_Controller
+from controllers.pid_controller import PID_Controller
+from plants.plant import Plant
 
 
 class CONSYS:
     def __init__(
         self,
-        plant,
-        nn_controller,
-        pid_controller,
+        plant: Plant,
+        nn_controller: NN_Controller,
+        pid_controller: PID_Controller,
+        pid_params={"kp": 0.1, "ki": 0.01, "kd": 0.01},
         controller_type="PID",
         epochs=100,
         learning_rate=0.01,
-        timesteps=60,
+        timesteps=100,
     ):
         self.controller_type = controller_type
         self.plant = plant
@@ -30,7 +27,7 @@ class CONSYS:
 
         if controller_type == "PID":
             self.controller = pid_controller
-            self.params = {"kp": 0.1, "ki": 0.01, "kd": 0.01}
+            self.params = pid_params
         else:
             self.controller = nn_controller
             self.params = self.controller.init_params(self.random_key)
@@ -41,7 +38,11 @@ class CONSYS:
 
     def run_simulation(self, params, controller, noise, plant, timesteps):
         """
-        Function to loop over timesteps and calculate the average MSE
+        Function to loop over timesteps and calculate the average MSE.
+        This is one epoch of the run.
+
+        For each timestep, it calculates the error, gets the controller's decision,
+        updates the plant state, and stores the error for MSE calculation.
         """
 
         error_history = jnp.zeros(timesteps)
@@ -55,6 +56,8 @@ class CONSYS:
             error_history = error_history.at[t].set(error)
 
             U = controller.decision(error_history, params, t)
+            U = jnp.clip(U, -1.0, 1.0)
+
             current_state = plant.update(U, noise[t], current_state)
 
         return jnp.mean(jnp.square(error_history))
@@ -62,12 +65,18 @@ class CONSYS:
     def train(self):
         """
         Function to loop over epochs to calculate gradients and update params.
+        It uses JAX's value_and_grad to compute the loss and its gradients.
+
+        The gradients are clipped to prevent exploding gradients, and then the parameters are updated using gradient descent.
         """
 
+        # value_and_grad works like grad, but also returns the value of the function (loss).
         grad_func = jax.value_and_grad(self.run_simulation, argnums=0)
 
         for i in range(self.epochs):
             self.random_key, subkey = jrandom.split(self.random_key)
+
+            # Generate a fresh set of noise for an entire epoch
             noise_vector = jrandom.uniform(
                 subkey,
                 shape=(self.timesteps,),
@@ -75,6 +84,7 @@ class CONSYS:
                 maxval=self.plant.noise_range[1],
             )
 
+            # Compute loss and gradients
             current_loss, gradients = grad_func(
                 self.params,
                 self.controller,
@@ -87,47 +97,17 @@ class CONSYS:
                 lambda g: jnp.clip(g, -1.0, 1.0), gradients
             )
 
+            # This is the learning step. It updates the parameters by applying the function
+            # p - learning_rate * g for each parameter p and its corresponding gradient g.
             self.params = jax.tree_util.tree_map(
                 lambda p, g: p - self.learning_rate * g, self.params, clipped_grads
             )
 
             # Print status every 10 epoch
             if i % 10 == 0:
-                print(f"Epoch {i}: MSE = {current_loss:.4f}")
+                print(f"Epoch {i}: MSE = {current_loss:.8f}")
 
             self.loss_history.append(current_loss)
 
             if self.controller_type == "PID":
                 self.params_history.append(self.params)
-
-        # Save parameters
-        if self.controller_type == "PID":
-            with open("Project_1/saved_params/pid_params.pkl", "wb") as f:
-                pickle.dump(self.params, f)
-        else:
-            with open("Project_1/saved_params/nn_params.pkl", "wb") as f:
-                pickle.dump(self.params, f)
-
-    def test_trained_model(self, test_timesteps=100):
-        try:
-            if self.controller_type == "PID":
-                with open("Project_1/saved_params/pid_params.pkl", "rb") as f:
-                    loaded_params = pickle.load(f)
-            else:
-                with open("Project_1/saved_params/nn_params.pkl", "rb") as f:
-                    loaded_params = pickle.load(f)
-        except:
-            print("No saved params found!")
-            return
-
-        test_key = jrandom.PRNGKey(1)
-        noise = jrandom.uniform(test_key, (test_timesteps,), minval=-0.01, maxval=0.01)
-
-        loss = self.run_simulation(
-            loaded_params,
-            self.controller,
-            noise,
-            self.plant,
-            test_timesteps,
-        )
-        print(f"Test MSE: {loss:.6f}")
