@@ -42,13 +42,11 @@ class Cruise_Control_Plant(Plant):
         friction_force = self.b * current_velocity
 
         # scale force from engine
-        # U is in range [-1.0, 1.0], so maximum force from engine is 1.0 * 1000 = 1000 newtons,
-        # if the force multiplier is 1000.0
+        # U is in range [-1.0, 1.0], so maximum force from engine is 1.0 * 2000 = 2000 newtons,
+        # if the force multiplier is 2000.0
         engine_force = U * self.force_multiplier
 
         # Scale noise, otherwise the car wont be affected
-        # Maximum force from noise is 0.1 * 1000 = 100.0 newtons,
-        # which is 100.0/1000.0 kg = 0.1 m/s of force each second
         noise_force = D * self.force_multiplier
 
         # Total force on the car

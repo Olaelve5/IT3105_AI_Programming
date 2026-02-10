@@ -5,7 +5,7 @@ import jax.numpy as jnp
 class Plant(ABC):
     """
     Abstract Base Class for all Control Systems Plants.
-    Enforces a standard structure for plant implementations.@
+    Enforces a standard structure for plant implementations.
     All plants should inherit from this class and implement the required methods.
     """
 

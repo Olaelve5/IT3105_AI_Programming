@@ -76,7 +76,7 @@ class CONSYS:
         for i in range(self.epochs):
             self.random_key, subkey = jrandom.split(self.random_key)
 
-            # Generate a fresh set of noise for an entire epoch
+            # Generate a fresh set of noise for each epoch
             noise_vector = jrandom.uniform(
                 subkey,
                 shape=(self.timesteps,),

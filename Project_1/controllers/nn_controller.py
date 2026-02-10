@@ -82,7 +82,7 @@ class NN_Controller:
         error_sum = jnp.sum(error_history[: timestep + 1])
         error_change = error - prev_error
 
-        # Scale input to be in range = [-1.0, 1.0] (normalization)
+        # Scale input if input_scale is provided, otherwise use raw error values
         raw_input = jnp.array([error, error_sum, error_change])
         normalized_input = raw_input / self.input_scale
         x = normalized_input
