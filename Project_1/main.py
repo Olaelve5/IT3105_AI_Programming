@@ -136,7 +136,7 @@ config_cruise_control_nn = {
 
 
 def main():
-    ACTIVE_CONFIG = config_bathtub_pid
+    ACTIVE_CONFIG = config_cruise_control_nn
     print(f"\n========== Running Experiment: {ACTIVE_CONFIG['name']} ===========")
 
     plant = ACTIVE_CONFIG["plant_class"](**ACTIVE_CONFIG["plant_params"])

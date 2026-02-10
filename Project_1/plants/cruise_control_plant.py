@@ -11,7 +11,6 @@ class Cruise_Control_Plant(Plant):
         starting_velocity=0.0,
         force_multiplier=2000.0,
         noise_range=(-0.1, 0.1),
-        timesteps=100,
     ):
         """
         m = 1000 kg -> mass of the car
@@ -30,7 +29,6 @@ class Cruise_Control_Plant(Plant):
         self.starting_velocity = starting_velocity
         self.force_multiplier = force_multiplier
         self.noise_range = noise_range
-        self.nn_input_scale = [self.target, self.target * timesteps, 1.0]
 
     def update(self, U, D, state):
         """
