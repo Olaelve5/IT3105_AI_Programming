@@ -105,6 +105,11 @@ class MuZeroNet(nn.Module):
         self.dynamics = DynamicsNet(self.num_actions)
         self.prediction = PredictionNet(self.num_actions)
 
+    def init_params(self, observation, action):
+        # Used for initializing the model parameters with dummy data
+        state, _, _ = self.initial_inference(observation)
+        self.recurrent_inference(state, action)
+
     def initial_inference(self, observation):
         # Used once, at the root of the search tree, to get the initial state and predictions
         state = self.representation(observation)

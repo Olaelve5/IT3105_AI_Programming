@@ -114,12 +114,6 @@ class TetrisEnv:
             self.rotation = (self.rotation + 1) % len(self.figure)
             if self.intersects():
                 self.rotation = old_rotation
-
-        if action == 4:  # Drop fast
-            self.y += 1
-            if self.intersects():
-                self.y -= 1
-                self.freeze()
         else:
             self.y += 1
             if self.intersects():
@@ -145,7 +139,6 @@ class TetrisEnv:
                             0 <= i + self.y < self.height
                             and 0 <= j + self.x < self.width
                         ):
-                            # Mark falling piece as 1 (or self.current_color if you want color in inputs)
                             temp_field[i + self.y][j + self.x] = 1
         return np.array(temp_field)
 

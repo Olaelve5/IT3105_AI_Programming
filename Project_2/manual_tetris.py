@@ -1,7 +1,6 @@
 import pygame
-from tetris_env import TetrisEnv  # Import your new local class
+from tetris_env import TetrisEnv
 
-# 1. Initialize custom environment
 env = TetrisEnv(height=20, width=10)
 observation, info = env.reset()
 
@@ -27,12 +26,8 @@ while running:
                 action = 2
             elif event.key == pygame.K_UP:
                 action = 3
-            elif event.key == pygame.K_DOWN:
-                action = 4
 
     # Step the environment
-    # Note: Our custom class has gravity built into step(),
-    # so even action=0 moves the piece down.
     next_state, reward, terminated, truncated, info = env.step(action)
 
     total_reward += reward
