@@ -4,6 +4,7 @@ from mcts_node import MCTSNode
 from tetris_env import TetrisEnv
 from umcts import UMCTS
 import jax.numpy as jnp
+import jax
 
 
 class GameManager:
@@ -14,6 +15,10 @@ class GameManager:
         self.params = params
         self.num_actions = num_actions
         self.mcts = UMCTS(model, params, num_actions)
+
+        self.representation_fn = jax.jit(
+            lambda p, s: self.model.apply(p, s, method=self.model.representation)
+        )
 
     def play_single_episode(self, max_episode_length=50):
         """
@@ -30,9 +35,7 @@ class GameManager:
             # Initialize the root node of the MCTS and give it the abstract state representation of the current game state
             root_node = MCTSNode(prior=1.0)
             game_state = jnp.expand_dims(jnp.array([game_state]), axis=-1)
-            abstract_state = self.model.apply(
-                self.params, game_state, method=self.model.representation
-            )
+            abstract_state = self.representation_fn(self.params, game_state)
             root_node.game_state = abstract_state
 
             # Run MCTS to populate the search tree and get action probabilities

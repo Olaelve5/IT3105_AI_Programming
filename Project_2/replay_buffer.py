@@ -1,4 +1,5 @@
 import random
+import numpy as np
 
 
 class Game:
@@ -36,21 +37,41 @@ class ReplayBuffer:
         self.buffer.append(game)
 
     def sample_batch(self, batch_size, unroll_steps):
-        games = []
-        game_pos = []
+        # Filter out games that are too short to sample from
+        valid_games = [g for g in self.buffer if len(g) > unroll_steps]
 
-        # Pick batch_size random games
+        if not valid_games:
+            return None
+
+        batch_obs = []
+        batch_actions = []
+        batch_rewards = []
+        batch_values = []
+        batch_policies = []
+
         for _ in range(batch_size):
-            game = random.choice(self.buffer)
+            game = random.choice(valid_games)
 
-            # Pick a random starting position 'k' in that game
-            # -> subtract unroll_steps so we don't overflow the length of the game
-            pos = random.randint(0, len(game) - unroll_steps - 1)
+            random_pos = random.randint(0, len(game) - unroll_steps - 1)
 
-            games.append(game)
-            game_pos.append(pos)
+            batch_obs.append(game.states[random_pos])
 
-        # You would then pack these into a (batch, unroll_steps, ...) array
-        # to return to the trainer.
-        # For now, just returning the raw list is fine.
-        return games, game_pos
+            # The next K actions and rewards
+            batch_actions.append(game.actions[random_pos : random_pos + unroll_steps])
+            batch_rewards.append(game.rewards[random_pos : random_pos + unroll_steps])
+
+            # The K+1 targets for policy and value
+            batch_values.append(
+                game.root_values[random_pos : random_pos + unroll_steps + 1]
+            )
+            batch_policies.append(
+                game.child_visits[random_pos : random_pos + unroll_steps + 1]
+            )
+
+        return {
+            "observations": np.array(batch_obs),
+            "actions": np.array(batch_actions),
+            "target_rewards": np.array(batch_rewards),
+            "target_values": np.array(batch_values),
+            "target_policies": np.array(batch_policies),
+        }

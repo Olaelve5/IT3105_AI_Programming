@@ -22,6 +22,17 @@ class UMCTS:
         self.min_value = float("inf")
         self.max_value = -float("inf")
 
+        # JIT compile the model's recurrent and prediction functions for speed
+        # This is a lot faster than calling apply with method=model.recurrent_inference every time
+        self.recurrent_fn = jax.jit(
+            lambda p, s, a: self.model.apply(
+                p, s, a, method=self.model.recurrent_inference
+            )
+        )
+        self.prediction_fn = jax.jit(
+            lambda p, s: self.model.apply(p, s, method=self.model.prediction)
+        )
+
     def run(self, root_node: MCTSNode, num_simulations=50):
         """
         Runs the full algorithm.
@@ -40,11 +51,8 @@ class UMCTS:
                     action = jnp.array([action])
 
                     # Generate new state + reward
-                    state, reward, _, _ = self.model.apply(
-                        self.params,
-                        parent_state,
-                        action,
-                        method=self.model.recurrent_inference,
+                    state, reward, _, _ = self.recurrent_fn(
+                        self.params, parent_state, action
                     )
 
                     node.game_state = state
@@ -54,9 +62,7 @@ class UMCTS:
 
             # node is now a leaf node
             # Use the prediction nn to generate empty children and attatch them to the node
-            action_probs, _ = self.model.apply(
-                self.params, node.game_state, method=self.model.prediction
-            )
+            action_probs, _ = self.prediction_fn(self.params, node.game_state)
 
             # Convert action probabilities to sum up to 1
             action_probs = jax.nn.softmax(action_probs[0])
@@ -165,8 +171,8 @@ class UMCTS:
         action = jnp.array([random.randint(0, self.num_actions - 1)])
 
         # Generate next state and evaluate it
-        _, reward, _, value_next = self.model.apply(
-            self.params, node.game_state, action, method=self.model.recurrent_inference
+        _, reward, _, value_next = self.recurrent_fn(
+            self.params, node.game_state, action
         )
 
         reward = float(reward[0, 0])

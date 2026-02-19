@@ -34,7 +34,7 @@ if __name__ == "__main__":
 
     print("Playing a test episode (capped at 50 steps for speed)...")
     # Cap it at 50 so you don't have to wait 10 minutes to see if it works
-    manager.play_single_episode(max_episode_length=10)
+    manager.play_single_episode(max_episode_length=50)
 
     # 5. Verify the buffer
     print(f"Games in Replay Buffer: {len(manager.replay_buffer.buffer)}")
