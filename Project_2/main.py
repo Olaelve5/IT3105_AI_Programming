@@ -1,57 +1,42 @@
+from game_manager import GameManager
 from tetris_env import TetrisEnv
 from MuZeroNet import MuZeroNet
 import jax
 import jax.numpy as jnp
 import numpy as np
 
-key = jax.random.PRNGKey(42)
+if __name__ == "__main__":
+    print("--- Starting GameManager Test ---")
 
-BOARD_HEIGHT = 20
-BOARD_WIDTH = 10
-NUM_ACTIONS = 4  # No-op, Left, Right, Rotate
+    # 1. Setup basic parameters
+    # Assuming Tetris has e.g., 4 actions (Left, Right, Rotate, Drop)
+    NUM_ACTIONS = 4
 
-env = TetrisEnv()
-observation, info = env.reset()
+    # 2. Instantiate the model
+    model = MuZeroNet(num_actions=NUM_ACTIONS)
 
-model = MuZeroNet(num_actions=NUM_ACTIONS)
+    # 3. Initialize the JAX Network Weights (params)
+    # JAX requires a random key to initialize weights
+    rng = jax.random.PRNGKey(42)
 
-# Dummy input needed to initialize the model parameters
-dummy_input = jnp.zeros((1, BOARD_HEIGHT, BOARD_WIDTH, 1))
-dummy_action = jnp.array([0])
-params = model.init(key, dummy_input, dummy_action, method=model.init_params)
-print("✅ Model initialized with random weights.")
+    # We need dummy data to tell Flax what shape the inputs will be.
+    # IMPORTANT: Convolutional layers usually expect shapes like (Batch, Height, Width, Channels)
+    # If your Tetris board is 20x10, your dummy observation should be (1, 20, 10, 1)
+    dummy_observation = jnp.ones((1, 20, 10, 1))
+    dummy_action = jnp.array([0])
 
+    print("Initializing model parameters...")
+    # Use the init_params method you wrote in MuZeroNet!
+    params = model.init(rng, dummy_observation, dummy_action, method=model.init_params)
 
-# 6. Test: Run the actual game observation through the network
-# We must reshape the real observation to match the dummy data's 4D shape
-real_obs_reshaped = jnp.array(observation).reshape(1, BOARD_HEIGHT, BOARD_WIDTH, 1)
+    # 4. Create the Manager and Play
+    manager = GameManager(model, params, NUM_ACTIONS)
 
-# We use 'apply' to pass the weights (params) and the data into the network
-state, policy_logits, value = model.apply(
-    params, real_obs_reshaped, method=model.initial_inference
-)
+    print("Playing a test episode (capped at 50 steps for speed)...")
+    # Cap it at 50 so you don't have to wait 10 minutes to see if it works
+    manager.play_single_episode(max_episode_length=10)
 
-print(f"Abstract State Shape: {state.shape}")
-print(f"Policy (Move Hunches): {policy_logits}")
-print(f"Board Value: {value}")
-
-
-# --- RECURRENT INFERENCE TEST ---
-print("\n--- Testing Imagination (Recurrent Inference) ---")
-
-# 1. Pick an action to imagine (e.g., Action 1 = Move Right)
-# We need to wrap it in a JAX array.
-action_to_imagine = jnp.array([1])
-
-# 2. Run the Recurrent Inference
-# Input: The abstract state we got from the previous step + The action we want to test
-next_state, projected_reward, next_policy, next_value = model.apply(
-    params, state, action_to_imagine, method=model.recurrent_inference
-)
-
-print(f"Imagined Next State: {next_state.shape}")  # Should be (1, 10, 5, 64)
-print(
-    f"Imagined Reward: {projected_reward}"
-)  # Should be a single number (e.g., [[0.02]])
-print(f"Next Policy: {next_policy}")  # Predictions for the *next* turn
-print(f"Next Value: {next_value}")
+    # 5. Verify the buffer
+    print(f"Games in Replay Buffer: {len(manager.replay_buffer.buffer)}")
+    if len(manager.replay_buffer.buffer) > 0:
+        print("✅ SUCCESS! Data is flowing from the Game into the Memory Bank.")

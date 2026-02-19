@@ -101,9 +101,19 @@ class MuZeroNet(nn.Module):
     num_actions: int
 
     def setup(self):
-        self.representation = RepresentationNet()
-        self.dynamics = DynamicsNet(self.num_actions)
-        self.prediction = PredictionNet(self.num_actions)
+        self._representation = RepresentationNet()
+        self._dynamics = DynamicsNet(self.num_actions)
+        self._prediction = PredictionNet(self.num_actions)
+
+    # Wrappers to make the networks available to Flax's apply method
+    def representation(self, observation):
+        return self._representation(observation)
+
+    def prediction(self, state):
+        return self._prediction(state)
+
+    def dynamics(self, state, action):
+        return self._dynamics(state, action)
 
     def init_params(self, observation, action):
         # Used for initializing the model parameters with dummy data

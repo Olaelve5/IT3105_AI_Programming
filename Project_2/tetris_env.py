@@ -189,7 +189,7 @@ class TetrisEnv:
         self.screen.blit(text, [10, 10])
 
         pygame.display.flip()
-        self.clock.tick(5)
+        self.clock.tick(10)
 
     def close(self):
         if self.screen is not None:
