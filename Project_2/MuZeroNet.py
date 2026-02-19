@@ -89,12 +89,12 @@ class PredictionNet(nn.Module):
         flat = state.reshape((state.shape[0], -1))
 
         # Policy (Move Probabilities)
-        action_probs = nn.Dense(self.num_actions)(flat)
+        raw_policy_scores = nn.Dense(self.num_actions)(flat)
 
         # Value (Win probability or Score estimate)
         value = nn.Dense(1)(flat)
 
-        return action_probs, value
+        return raw_policy_scores, value
 
 
 class MuZeroNet(nn.Module):
@@ -123,11 +123,11 @@ class MuZeroNet(nn.Module):
     def initial_inference(self, observation):
         # Used once, at the root of the search tree, to get the initial state and predictions
         state = self.representation(observation)
-        action_probs, value = self.prediction(state)
-        return state, action_probs, value
+        raw_policy_scores, value = self.prediction(state)
+        return state, raw_policy_scores, value
 
     def recurrent_inference(self, state, action):
         # Used when simulating future steps in the search tree
         next_state, reward = self.dynamics(state, action)
-        action_probs, value = self.prediction(next_state)
-        return next_state, reward, action_probs, value
+        raw_policy_scores, value = self.prediction(next_state)
+        return next_state, reward, raw_policy_scores, value
