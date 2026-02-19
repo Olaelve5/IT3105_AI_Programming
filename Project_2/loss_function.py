@@ -23,10 +23,10 @@ def loss_function(params, model: MuZeroNet, batch):
 
     # Then get the loss for the rest of the steps
     for i in range(1, unroll_steps):
-        action_t = batch["actions"][:, i - 1]
+        action = batch["actions"][:, i - 1]
 
         hidden_state, pred_reward, raw_policy_scores, pred_value = model.apply(
-            params, hidden_state, action_t, method=model.recurrent_inference
+            params, hidden_state, action, method=model.recurrent_inference
         )
 
         target_reward = batch["target_rewards"][:, i - 1]

@@ -69,7 +69,8 @@ class ReplayBuffer:
             )
 
         return {
-            "observations": np.array(batch_obs),
+            # Add an extra dimension to observations to match the expected input shape of the model
+            "observations": np.expand_dims(np.array(batch_obs), axis=-1),
             "actions": np.array(batch_actions),
             "target_rewards": np.array(batch_rewards),
             "target_values": np.array(batch_values),

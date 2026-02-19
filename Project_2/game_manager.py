@@ -32,10 +32,11 @@ class GameManager:
         done = False
 
         while not done and steps_taken < max_episode_length:
-            # Initialize the root node of the MCTS and give it the abstract state representation of the current game state
+
+            # Initialize the root node of the MCTS
             root_node = MCTSNode(prior=1.0)
-            game_state = jnp.expand_dims(jnp.array([game_state]), axis=-1)
-            abstract_state = self.representation_fn(self.params, game_state)
+            state_jnp = jnp.expand_dims(jnp.array([game_state]), axis=-1)
+            abstract_state = self.representation_fn(self.params, state_jnp)
             root_node.game_state = abstract_state
 
             # Run MCTS to populate the search tree and get action probabilities
