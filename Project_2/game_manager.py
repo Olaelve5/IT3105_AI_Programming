@@ -1,7 +1,7 @@
 from replay_buffer import Game, ReplayBuffer
 import numpy as np
 from mcts_node import MCTSNode
-from tetris_env import TetrisEnv
+from tetris.tetris_env import TetrisEnv
 from umcts import UMCTS
 import jax.numpy as jnp
 import jax
@@ -20,7 +20,7 @@ class GameManager:
             lambda p, s: self.model.apply(p, s, method=self.model.representation)
         )
 
-    def play_single_episode(self, max_episode_length=50):
+    def play_single_episode(self, max_episode_length=200):
         """
         Simulates one episode and stores it in the replay buffer.
         """

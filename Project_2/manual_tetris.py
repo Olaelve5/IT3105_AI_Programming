@@ -1,5 +1,5 @@
 import pygame
-from tetris_env import TetrisEnv
+from tetris.tetris_env import TetrisEnv
 
 env = TetrisEnv(height=20, width=10)
 observation, info = env.reset()
@@ -24,7 +24,7 @@ while running:
                 action = 1
             elif event.key == pygame.K_RIGHT:
                 action = 2
-            elif event.key == pygame.K_UP:
+            elif event.key == pygame.K_SPACE:
                 action = 3
 
     # Step the environment
