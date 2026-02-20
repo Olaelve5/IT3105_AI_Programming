@@ -38,7 +38,7 @@ def main(save_params=SAVE_PARAMS):
     game_manager = GameManager(model, params, NUM_ACTIONS)
 
     # Main training loop
-    print("\n 🚀 ========== Starting Training ==========")
+    print("\n========== 🚀 Starting Training ==========")
     print(f"Training for {NUM_GENERATIONS} generations...\n")
 
     loss_history = []
@@ -49,18 +49,23 @@ def main(save_params=SAVE_PARAMS):
         print(f"Playing {GAMES_PER_GENERATION} games... \n")
 
         rewards_this_gen = []
+        steps_per_game = []
 
         # Play games to gather experience
-        for i in range(GAMES_PER_GENERATION):
+        for _ in range(GAMES_PER_GENERATION):
             game_manager.params = params
-            episode_reward = game_manager.play_single_episode(
+            episode_reward, steps_taken = game_manager.play_single_episode(
                 max_episode_length=STEPS_PER_GENERATION
             )
             rewards_this_gen.append(episode_reward)
+            steps_per_game.append(steps_taken)
 
         avg_reward = sum(rewards_this_gen) / len(rewards_this_gen)
+        avg_steps = sum(steps_per_game) / len(steps_per_game)
         reward_history.append(avg_reward)
-        print(f"\n🏆 Average Reward this generation: {avg_reward:.2f} \n")
+
+        print(f"\n🏆 Average Reward this generation: {avg_reward:.2f}")
+        print(f"⏱️ Average steps per game this generation: {avg_steps:.0f} \n")
 
         # Train on the experience
         params, opt_state, avg_loss = perform_training_steps(

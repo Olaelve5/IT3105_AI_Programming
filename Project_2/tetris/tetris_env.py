@@ -96,6 +96,8 @@ class TetrisEnv:
         terminated = self.state == "gameover"
         reward = round(reward, 2)
 
+        reward = float(np.clip(reward, -1.0, 1.0))
+
         return self._get_observation(), reward, terminated, False, {}
 
     def handle_action(self, action):

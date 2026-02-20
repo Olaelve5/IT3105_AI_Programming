@@ -70,4 +70,4 @@ class GameManager:
             f"Game finished in {steps_taken} steps with total reward {sum(game.rewards)}"
         )
 
-        return sum(game.rewards)
+        return sum(game.rewards), steps_taken

@@ -68,6 +68,11 @@ class UMCTS:
             action_probs = jax.nn.softmax(action_probs[0])
             action_probs = np.array(action_probs)
 
+            # Add some noise to encourage exploration
+            if len(search_path) == 1:
+                noise = np.random.dirichlet([0.3] * self.num_actions)
+                action_probs = 0.75 * action_probs + 0.25 * noise
+
             for i in range(self.num_actions):
                 child = MCTSNode(action_probs[i])
                 node.children[i] = child
