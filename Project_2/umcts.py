@@ -13,7 +13,7 @@ class UMCTS:
     It uses the MuZeroNet to evaluate game states and guide the search.
     """
 
-    def __init__(self, model: MuZeroNet, params, num_actions, discount_factor=0.98):
+    def __init__(self, model: MuZeroNet, params, num_actions, discount_factor=0.99):
         self.model = model
         self.params = params
         self.num_actions = num_actions

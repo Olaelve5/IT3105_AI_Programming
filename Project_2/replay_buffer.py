@@ -7,12 +7,13 @@ class Game:
     Stores the history of a single episode.
     """
 
-    def __init__(self):
+    def __init__(self, discount=0.98):
         self.states = []
         self.actions = []
         self.rewards = []
         self.child_visits = []
         self.root_values = []
+        self.discount = discount
 
     def store_step(self, state, action, reward, child_visits, root_value):
         self.states.append(state)
@@ -20,6 +21,27 @@ class Game:
         self.rewards.append(reward)
         self.child_visits.append(child_visits)
         self.root_values.append(root_value)
+
+    def compute_target_value(self, index, n_steps=10):
+        """
+        Computes the target value with bootstrapping as described in the
+        MuZero paper. It uses actual values for the n-first steps, then use
+        the values predicted from the network.
+        """
+
+        value = 0.0
+        for i in range(n_steps):
+            step = index + i
+            if step < len(self.rewards):
+                value += (self.discount**i) * self.rewards[step]
+            else:
+                return value
+
+        bootstrap_idx = index + n_steps
+        if bootstrap_idx < len(self.root_values):
+            value += (self.discount**n_steps) * self.root_values[bootstrap_idx]
+
+        return value
 
     def __len__(self):
         return len(self.actions)
@@ -55,15 +77,15 @@ class ReplayBuffer:
             random_pos = random.randint(0, len(game) - unroll_steps - 1)
 
             batch_obs.append(game.states[random_pos])
-
-            # The next K actions and rewards
             batch_actions.append(game.actions[random_pos : random_pos + unroll_steps])
             batch_rewards.append(game.rewards[random_pos : random_pos + unroll_steps])
 
-            # The K+1 targets for policy and value
-            batch_values.append(
-                game.root_values[random_pos : random_pos + unroll_steps + 1]
-            )
+            target_vals = [
+                game.compute_target_value(random_pos + t, n_steps=unroll_steps)
+                for t in range(unroll_steps + 1)
+            ]
+            batch_values.append(target_vals)
+
             batch_policies.append(
                 game.child_visits[random_pos : random_pos + unroll_steps + 1]
             )

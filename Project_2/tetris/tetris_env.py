@@ -46,12 +46,14 @@ class TetrisEnv:
         self.active_piece = TetrisPiece(figure, [3, 0])
 
     def step(self, action):
+        old_height, old_holes, old_bumpiness = self.get_board_metrics()
         reward = 0.0
 
         self.handle_action(action)
 
         # Apply gravity
         shape_locked = False
+
         if not self.check_collision(
             self.active_piece.active_shape, self.active_piece.x, self.active_piece.y + 1
         ):
@@ -67,19 +69,32 @@ class TetrisEnv:
             ):
                 self.state = "gameover"
                 reward = -10.0
+                reward = round(reward, 2)
                 return self._get_observation(), reward, True, False, {}
-
-            # Otherwise, check for cleared lines
-            lines_cleared = self.clear_lines()
-            if lines_cleared > 0:
-                reward += lines_cleared**2
             else:
-                # small reward for locking a shape
-                reward += 0.1
+                new_height, new_holes, new_bumpiness = self.get_board_metrics()
+
+                # Check for cleared lines
+                lines_cleared = self.clear_lines()
+
+                # Big reward for clearing lines
+                if lines_cleared > 0:
+                    reward += lines_cleared**2 / 16
+                    self.score += lines_cleared**2
+
+                # Reward for less bumpiness, penalty for more
+                bumpiness_diff = old_bumpiness - new_bumpiness
+                reward += bumpiness_diff * 0.01
+
+                # Reward for less holes, penalty for more
+                holes_diff = old_holes - new_holes
+                reward += holes_diff * 0.1
+
+                # Small reward for locking a shape (not dying)
+                reward += 0.01
 
         terminated = self.state == "gameover"
-
-        self.score += reward
+        reward = round(reward, 2)
 
         return self._get_observation(), reward, terminated, False, {}
 
@@ -234,7 +249,7 @@ class TetrisEnv:
                             ]
                             pygame.draw.rect(self.screen, color, rect)
 
-        score_text = self.font.render(f"Score: {self.score}", True, (255, 255, 255))
+        score_text = self.font.render(f"Score: {self.score:.2f}", True, (255, 255, 255))
         self.screen.blit(score_text, [10, 10])
 
         pygame.display.flip()
@@ -244,3 +259,30 @@ class TetrisEnv:
         if self.screen is not None:
             pygame.quit()
             self.screen = None
+
+    def get_board_metrics(self):
+        """
+        Finds height, holes and bumpiness of the board state.
+        To be used in reward function.
+        """
+        heights = []
+        holes = 0
+
+        for col in range(self.width):
+            col_data = self.board[:, col]
+            non_zeros = np.where(col_data > 0)[0]
+
+            if len(non_zeros) > 0:
+                top_row = non_zeros[0]
+                heights.append(self.height - top_row)
+
+                # Any 0 that is below something else in the same column is a hole
+                holes += np.sum(col_data[top_row:] == 0)
+            else:
+                heights.append(0)
+
+        heights = np.array(heights)
+        sum_height = np.sum(heights)
+        bumpiness = np.sum(np.abs(heights[:-1] - heights[1:]))
+
+        return sum_height, holes, bumpiness
