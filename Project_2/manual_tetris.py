@@ -25,8 +25,10 @@ while running:
                 action = 1
             elif event.key == pygame.K_RIGHT:
                 action = 2
-            elif event.key == pygame.K_SPACE:
+            elif event.key == pygame.K_UP:
                 action = 3
+            elif event.key == pygame.K_SPACE:
+                action = 4
 
     # Step the environment
     next_state, reward, terminated, truncated, info = env.step(action)
@@ -36,7 +38,7 @@ while running:
         print(f"Scored! Reward: {reward}")
 
     if terminated:
-        print(f"Game Over! Total Score: {total_reward}")
+        print(f"Game Over! Total Score: {total_reward:.2f}")
         env.reset()
         total_reward = 0
 

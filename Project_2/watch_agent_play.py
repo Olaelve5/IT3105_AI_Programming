@@ -62,11 +62,11 @@ def load_params(model, filepath):
 def watch_game():
     filepath = list_available_params()
 
-    model = MuZeroNet(num_actions=NUM_ACTIONS)
+    model = MuZeroNet()
     params = load_params(model, filepath)
 
-    env = TetrisEnv(board_height=BOARD_HEIGHT, board_width=BOARD_WIDTH)
-    mcts = UMCTS(model, params, num_actions=NUM_ACTIONS)
+    env = TetrisEnv()
+    mcts = UMCTS(model, params)
 
     representation_fn = jax.jit(
         lambda p, s: model.apply(p, s, method=model.representation)

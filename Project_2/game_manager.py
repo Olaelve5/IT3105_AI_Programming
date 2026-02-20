@@ -68,7 +68,7 @@ class GameManager:
 
         self.replay_buffer.save_game(game)
         print(
-            f"Game finished in {steps_taken} steps with total reward {sum(game.rewards)}"
+            f"Game finished in {steps_taken} steps with total reward {sum(game.rewards):.2f}"
         )
 
         return sum(game.rewards), steps_taken

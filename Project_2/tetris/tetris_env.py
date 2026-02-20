@@ -48,10 +48,12 @@ class TetrisEnv:
         self.active_piece = TetrisPiece(piece, [start_x, 0])
 
     def step(self, action):
-        old_height, old_holes, old_bumpiness = self.get_board_metrics()
+        old_max_height, old_sum_height, old_holes, old_bumpiness = (
+            self.get_board_metrics()
+        )
         reward = 0.0
 
-        self.handle_action(action)
+        drop_distance = self.handle_action(action)
 
         # Apply gravity
         shape_locked = False
@@ -74,37 +76,58 @@ class TetrisEnv:
                 reward = round(reward, 2)
                 return self._get_observation(), reward, True, False, {}
             else:
-                new_height, new_holes, new_bumpiness = self.get_board_metrics()
+                new_max_height, new_sum_height, new_holes, new_bumpiness = (
+                    self.get_board_metrics()
+                )
 
                 # Check for cleared lines
                 lines_cleared = self.clear_lines()
 
                 # Big reward for clearing lines
                 if lines_cleared > 0:
-                    clear_reward = (lines_cleared**2) * 10
+                    clear_reward = (lines_cleared**2) * 5
                     print(
                         f"{'🔥' * lines_cleared} Cleared {lines_cleared} line{'s' if lines_cleared > 1 else ''}! Reward: {clear_reward}"
                     )
                     reward += clear_reward
                     self.score += lines_cleared**2
 
-                # Reward for less bumpiness, penalty for more
+                # Reward for less/equal bumpiness
                 bumpiness_diff = old_bumpiness - new_bumpiness
-                reward += bumpiness_diff * 0.01
+                if bumpiness_diff >= 0:
+                    reward += 0.05 + bumpiness_diff * 0.05
 
-                # Reward for less holes, penalty for more
+                # Reward for fewer or equal amount of holes
                 holes_diff = old_holes - new_holes
-                reward += holes_diff * 0.1
+                if holes_diff >= 0:
+                    reward += 0.1 + holes_diff * 0.1
+
+                # Small reward for fast dropping
+                if action == 4:
+                    reward += 0.005 * drop_distance
+
+                # Small reward for lower or equal max height
+                max_height_diff = old_max_height - new_max_height
+                if max_height_diff >= 0:
+                    reward += 0.05 + max_height_diff * 0.05
 
                 # Small reward for locking a shape (not dying)
-                reward += 0.1
+                reward += 0.05
 
         terminated = self.state == "gameover"
 
-        return self._get_observation(), round(reward, 2), terminated, False, {}
+        return (
+            self._get_observation(),
+            round(reward, 2),
+            terminated,
+            False,
+            {"drop_distance": drop_distance},
+        )
 
     def handle_action(self, action):
         """Processes horizontal movement and rotation."""
+        # if action == 0:  # No action
+
         if action == 1:  # Left
             if not self.check_collision(
                 self.active_piece.active_shape,
@@ -124,9 +147,22 @@ class TetrisEnv:
         elif action == 3:  # Rotate
             self.active_piece.rotate(self.can_rotate)
 
-        else:
-            # action 0 is do nothing
-            return
+        elif action == 4:  # Fast Drop
+            drop_y = self.get_drop_position()
+            drop_distance = drop_y - self.active_piece.y
+            self.active_piece.y = drop_y
+            return drop_distance
+
+        return 0.0
+
+    def get_drop_position(self):
+        """Returns the y position where the piece would land if dropped."""
+        drop_y = self.active_piece.y
+        while not self.check_collision(
+            self.active_piece.active_shape, self.active_piece.x, drop_y + 1
+        ):
+            drop_y += 1
+        return drop_y
 
     def _get_observation(self):
         """Creates a temporary obs of the board + the falling piece for the AI."""
@@ -236,29 +272,44 @@ class TetrisEnv:
 
         # Draw the falling piece
         if self.active_piece is not None:
-            shape = self.active_piece.active_shape
-            color = self.id_to_color[self.active_piece.id]
+            # Draw the shadow of where the piece would land
+            drop_y = self.get_drop_position()
+            self.draw_piece(
+                self.active_piece.active_shape,
+                self.active_piece.x,
+                drop_y,
+                (100, 100, 100),
+            )
 
-            for i in range(4):
-                for j in range(4):
-                    if i * 4 + j in shape:
-                        board_y = self.active_piece.y + i
-                        board_x = self.active_piece.x + j
-
-                        if board_y >= 0:
-                            rect = [
-                                board_x * self.grid_size,
-                                board_y * self.grid_size,
-                                self.grid_size - 1,
-                                self.grid_size - 1,
-                            ]
-                            pygame.draw.rect(self.screen, color, rect)
+            self.draw_piece(
+                self.active_piece.active_shape,
+                self.active_piece.x,
+                self.active_piece.y,
+                self.id_to_color[self.active_piece.id],
+            )
 
         score_text = self.font.render(f"Score: {self.score:.2f}", True, (255, 255, 255))
         self.screen.blit(score_text, [10, 10])
 
         pygame.display.flip()
         self.clock.tick(5)
+
+    def draw_piece(self, shape, offset_x, offset_y, color):
+        """Helper function to draw a piece at a given position with a given color."""
+        for i in range(4):
+            for j in range(4):
+                if i * 4 + j in shape:
+                    board_y = offset_y + i
+                    board_x = offset_x + j
+
+                    if board_y >= 0:
+                        rect = [
+                            board_x * self.grid_size,
+                            board_y * self.grid_size,
+                            self.grid_size - 1,
+                            self.grid_size - 1,
+                        ]
+                        pygame.draw.rect(self.screen, color, rect)
 
     def close(self):
         if self.screen is not None:
@@ -288,6 +339,7 @@ class TetrisEnv:
 
         heights = np.array(heights)
         sum_height = np.sum(heights)
+        max_height = np.max(heights)
         bumpiness = np.sum(np.abs(heights[:-1] - heights[1:]))
 
-        return sum_height, holes, bumpiness
+        return max_height, sum_height, holes, bumpiness
