@@ -2,18 +2,19 @@ import numpy as np
 import pygame
 from tetris.tetris_shape import FIGURES, TetrisPiece
 import random
+from config import BOARD_WIDTH, BOARD_HEIGHT, NUM_ACTIONS, GRID_SIZE
 
 BACKGROUND_COLOR = (15, 15, 20)
 
 
 class TetrisEnv:
-    def __init__(self, height=20, width=10, grid_size=30):
+    def __init__(self):
         """
         Initialize the environment's parameters.
         """
-        self.height = height
-        self.width = width
-        self.grid_size = grid_size
+        self.height = BOARD_HEIGHT
+        self.width = BOARD_WIDTH
+        self.grid_size = GRID_SIZE
         self.window_width = self.width * self.grid_size
         self.window_height = self.height * self.grid_size
 
@@ -42,8 +43,9 @@ class TetrisEnv:
 
     def spawn_new_piece(self):
         shape_name = random.choice(list(self.figure_pool.keys()))
-        figure = self.figure_pool[shape_name]
-        self.active_piece = TetrisPiece(figure, [3, 0])
+        piece = self.figure_pool[shape_name]
+        start_x = (self.width // 2) - 2
+        self.active_piece = TetrisPiece(piece, [start_x, 0])
 
     def step(self, action):
         old_height, old_holes, old_bumpiness = self.get_board_metrics()
@@ -68,7 +70,7 @@ class TetrisEnv:
                 self.active_piece.active_shape, self.active_piece.x, self.active_piece.y
             ):
                 self.state = "gameover"
-                reward = -10.0
+                reward = -1.0
                 reward = round(reward, 2)
                 return self._get_observation(), reward, True, False, {}
             else:
@@ -79,7 +81,11 @@ class TetrisEnv:
 
                 # Big reward for clearing lines
                 if lines_cleared > 0:
-                    reward += lines_cleared**2 / 16
+                    clear_reward = (lines_cleared**2) * 10
+                    print(
+                        f"{'🔥' * lines_cleared} Cleared {lines_cleared} line{'s' if lines_cleared > 1 else ''}! Reward: {clear_reward}"
+                    )
+                    reward += clear_reward
                     self.score += lines_cleared**2
 
                 # Reward for less bumpiness, penalty for more
@@ -91,14 +97,11 @@ class TetrisEnv:
                 reward += holes_diff * 0.1
 
                 # Small reward for locking a shape (not dying)
-                reward += 0.01
+                reward += 0.1
 
         terminated = self.state == "gameover"
-        reward = round(reward, 2)
 
-        reward = float(np.clip(reward, -1.0, 1.0))
-
-        return self._get_observation(), reward, terminated, False, {}
+        return self._get_observation(), round(reward, 2), terminated, False, {}
 
     def handle_action(self, action):
         """Processes horizontal movement and rotation."""

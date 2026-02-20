@@ -6,6 +6,7 @@ from train import perform_training_steps
 import optax
 import flax.serialization
 import os
+from config import NUM_ACTIONS, BOARD_WIDTH, BOARD_HEIGHT
 
 rng = jax.random.PRNGKey(42)
 
@@ -17,7 +18,6 @@ TRAINING_STEPS_PER_GENERATION = 50
 LEARNING_RATE = 0.005
 BATCH_SIZE = 32
 UNROLL_STEPS = 10
-NUM_ACTIONS = 4
 SAVE_PARAMS = True
 
 
@@ -26,7 +26,7 @@ def main(save_params=SAVE_PARAMS):
 
     # Model initialization
     model = MuZeroNet(num_actions=NUM_ACTIONS)
-    dummy_obs = jnp.ones((1, 20, 10, 1))
+    dummy_obs = jnp.ones((1, BOARD_HEIGHT, BOARD_WIDTH, 1))
     dummy_act = jnp.array([0])
     params = model.init(rng, dummy_obs, dummy_act, method=model.init_params)
 
@@ -35,7 +35,7 @@ def main(save_params=SAVE_PARAMS):
     opt_state = optimizer.init(params)
 
     # Game manager
-    game_manager = GameManager(model, params, NUM_ACTIONS)
+    game_manager = GameManager(model, params)
 
     # Main training loop
     print("\n========== 🚀 Starting Training ==========")
@@ -65,7 +65,18 @@ def main(save_params=SAVE_PARAMS):
         reward_history.append(avg_reward)
 
         print(f"\n🏆 Average Reward this generation: {avg_reward:.2f}")
-        print(f"⏱️ Average steps per game this generation: {avg_steps:.0f} \n")
+        print(f"⏱️  Average steps per game this generation: {avg_steps:.0f} \n")
+
+        if len(reward_history) > 1:
+            reward_change = avg_reward - reward_history[-2]
+            if reward_change > 0:
+                print(
+                    f"📈 Reward increased by {reward_change:.2f} from last generation!\n"
+                )
+            else:
+                print(
+                    f"📉 Reward decreased by {abs(reward_change):.2f} from last generation.\n"
+                )
 
         # Train on the experience
         params, opt_state, avg_loss = perform_training_steps(

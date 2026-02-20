@@ -5,16 +5,17 @@ from tetris.tetris_env import TetrisEnv
 from umcts import UMCTS
 import jax.numpy as jnp
 import jax
+from config import NUM_ACTIONS
 
 
 class GameManager:
-    def __init__(self, model, params, num_actions):
+    def __init__(self, model, params):
         self.replay_buffer = ReplayBuffer(capacity=5000)
         self.env = TetrisEnv()
         self.model = model
         self.params = params
-        self.num_actions = num_actions
-        self.mcts = UMCTS(model, params, num_actions)
+        self.num_actions = NUM_ACTIONS
+        self.mcts = UMCTS(model, params)
 
         self.representation_fn = jax.jit(
             lambda p, s: self.model.apply(p, s, method=self.model.representation)

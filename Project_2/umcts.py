@@ -5,6 +5,7 @@ import jax.numpy as jnp
 import jax
 import numpy as np
 from mcts_node import MCTSNode
+from config import NUM_ACTIONS
 
 
 class UMCTS:
@@ -13,10 +14,10 @@ class UMCTS:
     It uses the MuZeroNet to evaluate game states and guide the search.
     """
 
-    def __init__(self, model: MuZeroNet, params, num_actions, discount_factor=0.99):
+    def __init__(self, model: MuZeroNet, params, discount_factor=0.99):
         self.model = model
         self.params = params
-        self.num_actions = num_actions
+        self.num_actions = NUM_ACTIONS
         self.discount_factor = discount_factor
 
         self.min_value = float("inf")

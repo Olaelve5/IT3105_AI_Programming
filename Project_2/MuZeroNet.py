@@ -1,6 +1,7 @@
 import jax
 import jax.numpy as jnp
 import flax.linen as nn
+from config import NUM_ACTIONS
 
 """
 This file defines the neural network architecture for MuZero.
@@ -49,7 +50,7 @@ class DynamicsNet(nn.Module):
     The Dynamics Network takes the current abstract state and an action, and predicts the next abstract state and the reward.
     """
 
-    num_actions: int
+    num_actions: int = NUM_ACTIONS
 
     @nn.compact
     def __call__(self, state, action):
@@ -82,7 +83,7 @@ class PredictionNet(nn.Module):
     action probabilities and the value (expected reward).
     """
 
-    num_actions: int
+    num_actions: int = NUM_ACTIONS
 
     @nn.compact
     def __call__(self, state):
@@ -98,12 +99,12 @@ class PredictionNet(nn.Module):
 
 
 class MuZeroNet(nn.Module):
-    num_actions: int
+    num_actions: int = NUM_ACTIONS
 
     def setup(self):
         self._representation = RepresentationNet()
-        self._dynamics = DynamicsNet(self.num_actions)
-        self._prediction = PredictionNet(self.num_actions)
+        self._dynamics = DynamicsNet()
+        self._prediction = PredictionNet()
 
     # Wrappers to make the networks available to Flax's apply method
     def representation(self, observation):

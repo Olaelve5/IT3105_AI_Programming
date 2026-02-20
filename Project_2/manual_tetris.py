@@ -1,7 +1,8 @@
 import pygame
 from tetris.tetris_env import TetrisEnv
+from config import BOARD_WIDTH, BOARD_HEIGHT
 
-env = TetrisEnv(height=20, width=10)
+env = TetrisEnv()
 observation, info = env.reset()
 
 print("Controls: Left, Right, Up (Rotate), Down (Fast Drop). Q to quit.")

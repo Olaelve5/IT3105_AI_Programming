@@ -10,9 +10,9 @@ from MuZeroNet import MuZeroNet
 from umcts import UMCTS
 from mcts_node import MCTSNode
 from tetris.tetris_env import TetrisEnv
+from config import NUM_ACTIONS, BOARD_WIDTH, BOARD_HEIGHT
 
 PARAMS_FOLDER = "Project_2/saved_params"
-NUM_ACTIONS = 4
 
 
 def list_available_params():
@@ -49,7 +49,7 @@ def list_available_params():
 
 def load_params(model, filepath):
     rng = jax.random.PRNGKey(0)
-    dummy_obs = jnp.ones((1, 20, 10, 1))
+    dummy_obs = jnp.ones((1, BOARD_HEIGHT, BOARD_WIDTH, 1))
     dummy_act = jnp.array([0])
     template = model.init(rng, dummy_obs, dummy_act, method=model.init_params)
 
@@ -65,7 +65,7 @@ def watch_game():
     model = MuZeroNet(num_actions=NUM_ACTIONS)
     params = load_params(model, filepath)
 
-    env = TetrisEnv()
+    env = TetrisEnv(board_height=BOARD_HEIGHT, board_width=BOARD_WIDTH)
     mcts = UMCTS(model, params, num_actions=NUM_ACTIONS)
 
     representation_fn = jax.jit(
