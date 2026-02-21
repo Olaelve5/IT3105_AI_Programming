@@ -7,7 +7,7 @@ class Game:
     Stores the history of a single episode.
     """
 
-    def __init__(self, discount=0.98):
+    def __init__(self, discount=0.99):
         self.states = []
         self.actions = []
         self.rewards = []
@@ -48,7 +48,7 @@ class Game:
 
 
 class ReplayBuffer:
-    def __init__(self, capacity=5000):
+    def __init__(self, capacity=500):
         self.buffer = []
         self.capacity = capacity
 
@@ -58,11 +58,9 @@ class ReplayBuffer:
             self.buffer.pop(0)
         self.buffer.append(game)
 
-    def sample_batch(self, batch_size, unroll_steps):
-        # Filter out games that are too short to sample from
-        valid_games = [g for g in self.buffer if len(g) > unroll_steps]
-
-        if not valid_games:
+    def sample_batch(self, batch_size, unroll_steps, num_actions=5):
+        # We don't filter out short games anymore! Every game matters.
+        if not self.buffer:
             return None
 
         batch_obs = []
@@ -72,26 +70,39 @@ class ReplayBuffer:
         batch_policies = []
 
         for _ in range(batch_size):
-            game = random.choice(valid_games)
+            game = random.choice(self.buffer)
 
-            random_pos = random.randint(0, len(game) - unroll_steps - 1)
+            # FIX 1: Allow sampling all the way to the very last frame!
+            random_pos = random.randint(0, len(game) - 1)
 
             batch_obs.append(game.states[random_pos])
-            batch_actions.append(game.actions[random_pos : random_pos + unroll_steps])
-            batch_rewards.append(game.rewards[random_pos : random_pos + unroll_steps])
 
+            # Get the slices (they might be shorter than unroll_steps if near the end)
+            actions = game.actions[random_pos : random_pos + unroll_steps]
+            rewards = game.rewards[random_pos : random_pos + unroll_steps]
+            policies = game.child_visits[random_pos : random_pos + unroll_steps + 1]
+
+            # PADDING LOGIC: Fill the rest with zeros if we hit the end of the game
+            while len(actions) < unroll_steps:
+                actions.append(0)  # Pad with "Do Nothing" action
+                rewards.append(0.0)  # Pad with 0 reward
+
+            while len(policies) < unroll_steps + 1:
+                # Pad policy with uniform distribution
+                policies.append([1.0 / num_actions] * num_actions)
+
+            batch_actions.append(actions)
+            batch_rewards.append(rewards)
+
+            # The compute_target_value function already handles out-of-bounds safely!
             target_vals = [
                 game.compute_target_value(random_pos + t, n_steps=unroll_steps)
                 for t in range(unroll_steps + 1)
             ]
             batch_values.append(target_vals)
-
-            batch_policies.append(
-                game.child_visits[random_pos : random_pos + unroll_steps + 1]
-            )
+            batch_policies.append(policies)
 
         return {
-            # Add an extra dimension to observations to match the expected input shape of the model
             "observations": np.expand_dims(np.array(batch_obs), axis=-1),
             "actions": np.array(batch_actions),
             "target_rewards": np.array(batch_rewards),

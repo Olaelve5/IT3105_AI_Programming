@@ -25,6 +25,7 @@ def loss_function(params, model: MuZeroNet, batch):
     for i in range(1, unroll_steps):
         action = batch["actions"][:, i - 1]
 
+        hidden_state = jax.lax.stop_gradient(hidden_state) 
         hidden_state, pred_reward, raw_policy_scores, pred_value = model.apply(
             params, hidden_state, action, method=model.recurrent_inference
         )

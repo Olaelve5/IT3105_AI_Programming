@@ -65,7 +65,7 @@ def watch_game():
     model = MuZeroNet()
     params = load_params(model, filepath)
 
-    env = TetrisEnv()
+    env = TetrisEnv(tick_speed=10)
     mcts = UMCTS(model, params)
 
     representation_fn = jax.jit(
@@ -97,7 +97,11 @@ def watch_game():
 
         print(f"Step {step_count} | Action: {action}")
         state, reward, terminated, truncated, _ = env.step(action)
-        done = terminated or truncated
+
+        if terminated or truncated:
+            env.reset()
+
+        #done = terminated or truncated
 
     print(f"Game Over — survived {step_count} steps.")
     time.sleep(2)

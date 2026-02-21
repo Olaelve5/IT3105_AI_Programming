@@ -34,11 +34,10 @@ class UMCTS:
             lambda p, s: self.model.apply(p, s, method=self.model.prediction)
         )
 
-    def run(self, root_node: MCTSNode, num_simulations=50):
+    def run(self, root_node: MCTSNode, num_simulations=120):
         """
         Runs the full algorithm.
         """
-
         for _ in range(num_simulations):
             node: MCTSNode = root_node
             search_path = [node]
@@ -63,11 +62,14 @@ class UMCTS:
 
             # node is now a leaf node
             # Use the prediction nn to generate empty children and attatch them to the node
-            action_probs, _ = self.prediction_fn(self.params, node.game_state)
+            action_probs, predicted_value = self.prediction_fn(self.params, node.game_state)
 
             # Convert action probabilities to sum up to 1
             action_probs = jax.nn.softmax(action_probs[0])
             action_probs = np.array(action_probs)
+
+            # Extract the raw float value from the network
+            predicted_value = float(predicted_value[0, 0])
 
             # Add some noise to encourage exploration
             if len(search_path) == 1:
@@ -78,11 +80,8 @@ class UMCTS:
                 child = MCTSNode(action_probs[i])
                 node.children[i] = child
 
-            # Do rollout and get the value
-            rollout_value = self.rollout(node)
-
             # Walk up search_path and update stats
-            self.backpropagate(search_path, rollout_value)
+            self.backpropagate(search_path, predicted_value)
 
     def select_child(self, node):
         """

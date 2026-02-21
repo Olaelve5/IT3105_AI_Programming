@@ -26,6 +26,9 @@ class GameManager:
         Simulates one episode and stores it in the replay buffer.
         """
 
+        # Ensure MCTS has the latest parameters
+        self.mcts.params = self.params
+
         steps_taken = 0
         game_state, _ = self.env.reset()
         game = Game()

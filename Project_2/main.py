@@ -11,10 +11,10 @@ from config import NUM_ACTIONS, BOARD_WIDTH, BOARD_HEIGHT
 rng = jax.random.PRNGKey(42)
 
 # ================ Hyperparameters ================
-NUM_GENERATIONS = 500
+NUM_GENERATIONS = 1000
 STEPS_PER_GENERATION = 1000
-GAMES_PER_GENERATION = 20
-TRAINING_STEPS_PER_GENERATION = 50
+GAMES_PER_GENERATION = 15
+TRAINING_STEPS_PER_GENERATION = 100
 LEARNING_RATE = 0.005
 BATCH_SIZE = 32
 UNROLL_STEPS = 10
@@ -31,7 +31,7 @@ def main(save_params=SAVE_PARAMS):
     params = model.init(rng, dummy_obs, dummy_act, method=model.init_params)
 
     # Optimizer
-    optimizer = optax.adam(LEARNING_RATE)
+    optimizer = optax.adamw(LEARNING_RATE, weight_decay=1e-4)
     opt_state = optimizer.init(params)
 
     # Game manager
@@ -43,6 +43,7 @@ def main(save_params=SAVE_PARAMS):
 
     loss_history = []
     reward_history = []
+    best_steps_record = 0
 
     for gen in range(NUM_GENERATIONS):
         print(f"===== Generation {gen + 1} =====")
@@ -60,22 +61,29 @@ def main(save_params=SAVE_PARAMS):
             rewards_this_gen.append(episode_reward)
             steps_per_game.append(steps_taken)
 
+            if steps_taken > best_steps_record:
+                print(
+                    f"🎉 New record! Survived {steps_taken} steps (previous record: {best_steps_record})\n"
+                )
+                best_steps_record = steps_taken
+
         avg_reward = sum(rewards_this_gen) / len(rewards_this_gen)
         avg_steps = sum(steps_per_game) / len(steps_per_game)
         reward_history.append(avg_reward)
 
         print(f"\n🏆 Average Reward this generation: {avg_reward:.2f}")
-        print(f"⏱️  Average steps per game this generation: {avg_steps:.0f} \n")
+        print(f"⏱️  Average steps per game this generation: {avg_steps:.0f}")
+        print(f"👑 Current most steps record: {best_steps_record}\n")
 
         if len(reward_history) > 1:
             reward_change = avg_reward - reward_history[-2]
             if reward_change > 0:
                 print(
-                    f"📈 Reward increased by {reward_change:.2f} from last generation!\n"
+                    f"📈 Reward increased by {reward_change:.2f} from last generation!"
                 )
             else:
                 print(
-                    f"📉 Reward decreased by {abs(reward_change):.2f} from last generation.\n"
+                    f"📉 Reward decreased by {abs(reward_change):.2f} from last generation."
                 )
 
         # Train on the experience
@@ -94,7 +102,7 @@ def main(save_params=SAVE_PARAMS):
             loss_history.append(avg_loss)
 
         if save_params:
-            if (gen + 1) % 5 == 0:
+            if (gen + 1) % 10 == 0:
                 os.makedirs("Project_2/saved_params", exist_ok=True)
                 save_path = f"Project_2/saved_params/{gen + 1}_generations.msgpack"
                 with open(save_path, "wb") as f:

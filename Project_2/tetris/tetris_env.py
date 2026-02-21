@@ -2,21 +2,25 @@ import numpy as np
 import pygame
 from tetris.tetris_shape import FIGURES, TetrisPiece
 import random
-from config import BOARD_WIDTH, BOARD_HEIGHT, NUM_ACTIONS, GRID_SIZE
+from config import BOARD_WIDTH, BOARD_HEIGHT, GRID_SIZE
 
-BACKGROUND_COLOR = (15, 15, 20)
+BACKGROUND_COLOR = (80, 106, 110)
+BORDER_COLOR = (50, 50, 60)
+PADDING_LEFT = 175
+PADDING_RIGHT = 25
+PADDING_BOTTOM = 25
+PADDING_TOP = 25
 
 
 class TetrisEnv:
-    def __init__(self):
-        """
-        Initialize the environment's parameters.
-        """
+    def __init__(self, tick_speed=5):
         self.height = BOARD_HEIGHT
         self.width = BOARD_WIDTH
         self.grid_size = GRID_SIZE
-        self.window_width = self.width * self.grid_size
-        self.window_height = self.height * self.grid_size
+        self.window_width = self.width * self.grid_size + PADDING_LEFT + PADDING_RIGHT
+        self.window_height = self.height * self.grid_size + PADDING_TOP + PADDING_BOTTOM
+        self.tick_speed = tick_speed
+        self.lines_cleared = 0
 
         self.figure_pool = FIGURES
 
@@ -28,6 +32,7 @@ class TetrisEnv:
         self.active_piece = None
         self.score = 0
         self.state = None
+        self.step_counter = 0
 
         self.reset()
 
@@ -36,6 +41,8 @@ class TetrisEnv:
         self.board = np.zeros((self.height, self.width), dtype=int)
         self.active_piece = None
         self.state = "start"
+        self.step_counter = 0
+        self.lines_cleared = 0
 
         self.spawn_new_piece()
 
@@ -48,10 +55,8 @@ class TetrisEnv:
         self.active_piece = TetrisPiece(piece, [start_x, 0])
 
     def step(self, action):
-        old_max_height, old_sum_height, old_holes, old_bumpiness = (
-            self.get_board_metrics()
-        )
         reward = 0.0
+        self.step_counter += 1
 
         drop_distance = self.handle_action(action)
 
@@ -72,47 +77,40 @@ class TetrisEnv:
                 self.active_piece.active_shape, self.active_piece.x, self.active_piece.y
             ):
                 self.state = "gameover"
-                reward = -1.0
-                reward = round(reward, 2)
+                reward = 0.0
                 return self._get_observation(), reward, True, False, {}
             else:
                 new_max_height, new_sum_height, new_holes, new_bumpiness = (
                     self.get_board_metrics()
                 )
 
-                # Check for cleared lines
-                lines_cleared = self.clear_lines()
+                # Large base reward
+                base_reward = 0.05
 
-                # Big reward for clearing lines
+                # Penalize holes, bumpiness and height
+                board_penalty = (
+                    (new_holes * 0.01)
+                    + (new_bumpiness * 0.005)
+                    + (new_max_height * 0.005)
+                )
+
+                # Guarantee a positive reward
+                reward = max(0.001, base_reward - board_penalty)
+
+                # Check for line clears and add bonuses
+                lines_cleared = self.clear_lines()
                 if lines_cleared > 0:
-                    clear_reward = (lines_cleared**2) * 5
+                    clear_reward = (lines_cleared**2) * 0.5
                     print(
-                        f"{'🔥' * lines_cleared} Cleared {lines_cleared} line{'s' if lines_cleared > 1 else ''}! Reward: {clear_reward}"
+                        f"{'🔥' * lines_cleared} Cleared {lines_cleared} line{'s'}! Reward: {clear_reward}"
                     )
                     reward += clear_reward
-                    self.score += lines_cleared**2
 
-                # Reward for less/equal bumpiness
-                bumpiness_diff = old_bumpiness - new_bumpiness
-                if bumpiness_diff >= 0:
-                    reward += 0.05 + bumpiness_diff * 0.05
-
-                # Reward for fewer or equal amount of holes
-                holes_diff = old_holes - new_holes
-                if holes_diff >= 0:
-                    reward += 0.1 + holes_diff * 0.1
-
-                # Small reward for fast dropping
+                # Small reward for fast dropping a piece, scaled by how far it dropped
                 if action == 4:
-                    reward += 0.005 * drop_distance
+                    reward += 0.001 * drop_distance
 
-                # Small reward for lower or equal max height
-                max_height_diff = old_max_height - new_max_height
-                if max_height_diff >= 0:
-                    reward += 0.05 + max_height_diff * 0.05
-
-                # Small reward for locking a shape (not dying)
-                reward += 0.05
+                self.score += reward
 
         terminated = self.state == "gameover"
 
@@ -121,7 +119,7 @@ class TetrisEnv:
             round(reward, 2),
             terminated,
             False,
-            {"drop_distance": drop_distance},
+            {"drop_distance": drop_distance, "step_counter": self.step_counter},
         )
 
     def handle_action(self, action):
@@ -166,7 +164,7 @@ class TetrisEnv:
 
     def _get_observation(self):
         """Creates a temporary obs of the board + the falling piece for the AI."""
-        obs = self.board.copy()
+        obs = np.where(self.board > 0, 1.0, 0.0)
 
         # Draw the active piece onto the copy
         if self.active_piece is not None:
@@ -178,7 +176,7 @@ class TetrisEnv:
                         board_x = self.active_piece.x + j
 
                         if 0 <= board_y < self.height and 0 <= board_x < self.width:
-                            obs[board_y, board_x] = self.active_piece.id
+                            obs[board_y, board_x] = 0.5
 
         return obs
 
@@ -234,6 +232,7 @@ class TetrisEnv:
             empty_rows = np.zeros((num_cleared, self.width), dtype=int)
             self.board = np.vstack((empty_rows, remaining_board))
 
+            self.lines_cleared += num_cleared
         return num_cleared
 
     def render(self):
@@ -246,7 +245,9 @@ class TetrisEnv:
             )
             pygame.display.set_caption("MuZero Tetris")
             self.clock = pygame.time.Clock()
-            self.font = pygame.font.SysFont("Arial", 24, bold=True)
+            self.font = pygame.font.SysFont(
+                "assets/Jersey20-Regular.ttf", 30, bold=True
+            )
 
             self.id_to_color = {
                 details["id"]: details["color"] for details in self.figure_pool.values()
@@ -254,6 +255,15 @@ class TetrisEnv:
 
         # Clear the screen with your background color
         self.screen.fill(BACKGROUND_COLOR)
+
+        # Fill the inner area
+        inner_rect = [
+            PADDING_LEFT,
+            PADDING_TOP,
+            self.width * self.grid_size,
+            self.height * self.grid_size,
+        ]
+        pygame.draw.rect(self.screen, (20, 20, 20), inner_rect)
 
         # Draw the locked blocks
         for i in range(self.height):
@@ -263,8 +273,8 @@ class TetrisEnv:
                     color = self.id_to_color[block_id]
 
                     rect = [
-                        j * self.grid_size,
-                        i * self.grid_size,
+                        j * self.grid_size + PADDING_LEFT,
+                        i * self.grid_size + PADDING_TOP,
                         self.grid_size - 1,
                         self.grid_size - 1,
                     ]
@@ -288,11 +298,23 @@ class TetrisEnv:
                 self.id_to_color[self.active_piece.id],
             )
 
-        score_text = self.font.render(f"Score: {self.score:.2f}", True, (255, 255, 255))
-        self.screen.blit(score_text, [10, 10])
+        score_text = self.font.render(
+            f"Reward: {self.score:.2f}", True, (255, 255, 255)
+        )
+        self.screen.blit(score_text, [10, 25])
+
+        step_text = self.font.render(
+            f"Steps: {self.step_counter}", True, (255, 255, 255)
+        )
+        self.screen.blit(step_text, [10, 75])
+
+        lines_text = self.font.render(
+            f"Lines: {self.lines_cleared}", True, (255, 255, 255)
+        )
+        self.screen.blit(lines_text, [10, 125])
 
         pygame.display.flip()
-        self.clock.tick(5)
+        self.clock.tick(self.tick_speed)
 
     def draw_piece(self, shape, offset_x, offset_y, color):
         """Helper function to draw a piece at a given position with a given color."""
@@ -304,8 +326,8 @@ class TetrisEnv:
 
                     if board_y >= 0:
                         rect = [
-                            board_x * self.grid_size,
-                            board_y * self.grid_size,
+                            board_x * self.grid_size + PADDING_LEFT,
+                            board_y * self.grid_size + PADDING_TOP,
                             self.grid_size - 1,
                             self.grid_size - 1,
                         ]
