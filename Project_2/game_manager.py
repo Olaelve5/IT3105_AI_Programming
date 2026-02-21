@@ -53,17 +53,18 @@ class GameManager:
             action = np.random.choice(self.num_actions, p=policy_distribution)
             next_state, reward, terminated, truncated, _ = self.env.step(action)
 
+            if terminated or truncated:
+                done = True
+
             # Store the step in the game history
             game.store_step(
                 state=game_state,
                 action=action,
                 reward=reward,
+                discount=0.0 if done else 0.99,
                 child_visits=policy_distribution,
                 root_value=root_value,
             )
-
-            if terminated or truncated:
-                done = True
 
             # Move to the next state
             game_state = next_state

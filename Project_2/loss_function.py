@@ -25,21 +25,23 @@ def loss_function(params, model: MuZeroNet, batch):
     for i in range(1, unroll_steps):
         action = batch["actions"][:, i - 1]
 
-        hidden_state = jax.lax.stop_gradient(hidden_state) 
-        hidden_state, pred_reward, raw_policy_scores, pred_value = model.apply(
-            params, hidden_state, action, method=model.recurrent_inference
+        hidden_state = jax.lax.stop_gradient(hidden_state)
+        hidden_state, pred_reward, pred_discount, raw_policy_scores, pred_value = (
+            model.apply(params, hidden_state, action, method=model.recurrent_inference)
         )
 
         target_reward = batch["target_rewards"][:, i - 1]
         target_policy = batch["target_policies"][:, i]
         target_value = batch["target_values"][:, i]
+        target_discount = batch["target_discounts"][:, i - 1]
 
         reward_loss = jnp.mean((pred_reward.squeeze(-1) - target_reward) ** 2)
         action_probs = jax.nn.log_softmax(raw_policy_scores, axis=-1)
         policy_loss = -jnp.sum(target_policy * action_probs, axis=-1).mean()
         value_loss = jnp.mean((pred_value.squeeze(-1) - target_value) ** 2)
+        discount_loss = jnp.mean((pred_discount.squeeze(-1) - target_discount) ** 2)
 
-        total_loss = total_loss + reward_loss + policy_loss + value_loss
+        total_loss = total_loss + reward_loss + policy_loss + value_loss + discount_loss
 
     # Scale/normalize the loss
     return total_loss / (unroll_steps - 1)

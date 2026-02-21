@@ -13,6 +13,7 @@ class MCTSNode:
         self.children = {}
         self.game_state = None
         self.reward = 0
+        self.discount = 1.0
 
     def is_expanded(self):
         return len(self.children) > 0

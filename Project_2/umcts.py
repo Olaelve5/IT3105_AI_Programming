@@ -51,12 +51,13 @@ class UMCTS:
                     action = jnp.array([action])
 
                     # Generate new state + reward
-                    state, reward, _, _ = self.recurrent_fn(
+                    state, reward, discount, _, _ = self.recurrent_fn(
                         self.params, parent_state, action
                     )
 
                     node.game_state = state
                     node.reward = float(reward[0, 0])
+                    node.discount = float(discount[0, 0])
 
                 search_path.append(node)
 
@@ -163,7 +164,7 @@ class UMCTS:
         current_value = value
 
         for node in reversed(search_path):
-            current_value = node.reward + (self.discount_factor * current_value)
+            current_value = node.reward + (node.discount * current_value)
             node.visit_count += 1
             node.value_sum += current_value
 
@@ -179,14 +180,15 @@ class UMCTS:
         action = jnp.array([random.randint(0, self.num_actions - 1)])
 
         # Generate next state and evaluate it
-        _, reward, _, value_next = self.recurrent_fn(
+        _, reward, discount, value_next = self.recurrent_fn(
             self.params, node.game_state, action
         )
 
         reward = float(reward[0, 0])
         value_next = float(value_next[0, 0])
+        discount = float(discount[0, 0])
 
-        return reward + (self.discount_factor * value_next)
+        return reward + (discount * value_next)
 
     def extract_mcts_data(self, root_node, num_actions):
         root_value = root_node.value()

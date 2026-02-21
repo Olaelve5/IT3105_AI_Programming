@@ -74,7 +74,11 @@ class DynamicsNet(nn.Module):
         flat_x = x.reshape((x.shape[0], -1))
         reward = nn.Dense(1)(flat_x)
 
-        return next_state, reward
+        # Predict the discount (essentially whether the game is over)
+        discount_logits = nn.Dense(1)(flat_x)
+        discount = nn.sigmoid(discount_logits)
+
+        return next_state, reward, discount
 
 
 class PredictionNet(nn.Module):
@@ -129,6 +133,6 @@ class MuZeroNet(nn.Module):
 
     def recurrent_inference(self, state, action):
         # Used when simulating future steps in the search tree
-        next_state, reward = self.dynamics(state, action)
+        next_state, reward, discount = self.dynamics(state, action)
         raw_policy_scores, value = self.prediction(next_state)
-        return next_state, reward, raw_policy_scores, value
+        return next_state, reward, discount, raw_policy_scores, value

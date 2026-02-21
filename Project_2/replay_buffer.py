@@ -13,12 +13,14 @@ class Game:
         self.rewards = []
         self.child_visits = []
         self.root_values = []
+        self.pred_discounts = []
         self.discount = discount
 
-    def store_step(self, state, action, reward, child_visits, root_value):
+    def store_step(self, state, action, reward, discount, child_visits, root_value):
         self.states.append(state)
         self.actions.append(action)
         self.rewards.append(reward)
+        self.pred_discounts.append(discount)
         self.child_visits.append(child_visits)
         self.root_values.append(root_value)
 
@@ -68,6 +70,7 @@ class ReplayBuffer:
         batch_rewards = []
         batch_values = []
         batch_policies = []
+        batch_discounts = []
 
         for _ in range(batch_size):
             game = random.choice(self.buffer)
@@ -81,11 +84,13 @@ class ReplayBuffer:
             actions = game.actions[random_pos : random_pos + unroll_steps]
             rewards = game.rewards[random_pos : random_pos + unroll_steps]
             policies = game.child_visits[random_pos : random_pos + unroll_steps + 1]
+            discounts = game.pred_discounts[random_pos : random_pos + unroll_steps]
 
             # PADDING LOGIC: Fill the rest with zeros if we hit the end of the game
             while len(actions) < unroll_steps:
                 actions.append(0)  # Pad with "Do Nothing" action
                 rewards.append(0.0)  # Pad with 0 reward
+                discounts.append(0.0)  # Pad with discount of 0 (game over)
 
             while len(policies) < unroll_steps + 1:
                 # Pad policy with uniform distribution
@@ -101,11 +106,13 @@ class ReplayBuffer:
             ]
             batch_values.append(target_vals)
             batch_policies.append(policies)
+            batch_discounts.append(discounts)
 
         return {
             "observations": np.expand_dims(np.array(batch_obs), axis=-1),
             "actions": np.array(batch_actions),
             "target_rewards": np.array(batch_rewards),
+            "target_discounts": np.array(batch_discounts),
             "target_values": np.array(batch_values),
             "target_policies": np.array(batch_policies),
         }
