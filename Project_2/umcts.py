@@ -34,7 +34,7 @@ class UMCTS:
             lambda p, s: self.model.apply(p, s, method=self.model.prediction)
         )
 
-    def run(self, root_node: MCTSNode, num_simulations=120):
+    def run(self, root_node: MCTSNode, num_simulations=200):
         """
         Runs the full algorithm.
         """
@@ -62,7 +62,9 @@ class UMCTS:
 
             # node is now a leaf node
             # Use the prediction nn to generate empty children and attatch them to the node
-            action_probs, predicted_value = self.prediction_fn(self.params, node.game_state)
+            action_probs, predicted_value = self.prediction_fn(
+                self.params, node.game_state
+            )
 
             # Convert action probabilities to sum up to 1
             action_probs = jax.nn.softmax(action_probs[0])
@@ -128,7 +130,10 @@ class UMCTS:
         if child_visit_count > 0:
             value_score = self.normalize(child.value())
         else:
-            value_score = 0
+            # Use the parent's value as a baseline estimate for unexplored nodes
+            value_score = (
+                self.normalize(parent.value()) if parent.visit_count > 0 else 0.0
+            )
 
         return prior_score + value_score
 
@@ -148,7 +153,7 @@ class UMCTS:
         if self.max_value > self.min_value:
             return (value - self.min_value) / (self.max_value - self.min_value)
         else:
-            return value
+            return 0.0
 
     def backpropagate(self, search_path, value):
         """
@@ -158,14 +163,12 @@ class UMCTS:
         current_value = value
 
         for node in reversed(search_path):
+            current_value = node.reward + (self.discount_factor * current_value)
             node.visit_count += 1
             node.value_sum += current_value
 
             # Update stats so we can normalize the values
             self.update_stats(node.value())
-
-            # Prepare current_value for the parent
-            current_value = node.reward + (self.discount_factor * current_value)
 
     def rollout(self, node: MCTSNode):
         """
@@ -202,5 +205,9 @@ class UMCTS:
         policy_distribution = [
             v / total_visits if total_visits > 0 else 0 for v in visits
         ]
+
+        # Debug: print visit counts and resulting distribution
+        print(f"  visits: {visits}")
+        print(f"  policy: {[f'{p:.2f}' for p in policy_distribution]}")
 
         return policy_distribution, root_value

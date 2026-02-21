@@ -48,7 +48,7 @@ class Game:
 
 
 class ReplayBuffer:
-    def __init__(self, capacity=500):
+    def __init__(self, capacity=100):
         self.buffer = []
         self.capacity = capacity
 

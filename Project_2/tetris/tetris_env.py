@@ -89,7 +89,7 @@ class TetrisEnv:
 
                 # Penalize holes, bumpiness and height
                 board_penalty = (
-                    (new_holes * 0.01)
+                    (new_holes * 0.03)
                     + (new_bumpiness * 0.005)
                     + (new_max_height * 0.005)
                 )
