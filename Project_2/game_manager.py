@@ -21,7 +21,7 @@ class GameManager:
             lambda p, s: self.model.apply(p, s, method=self.model.representation)
         )
 
-    def play_single_episode(self, max_episode_length=200):
+    def play_single_episode(self, max_episode_length=1000):
         """
         Simulates one episode and stores it in the replay buffer.
         """

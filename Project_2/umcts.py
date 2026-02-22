@@ -208,8 +208,4 @@ class UMCTS:
             v / total_visits if total_visits > 0 else 0 for v in visits
         ]
 
-        # Debug: print visit counts and resulting distribution
-        print(f"  visits: {visits}")
-        print(f"  policy: {[f'{p:.2f}' for p in policy_distribution]}")
-
         return policy_distribution, root_value
