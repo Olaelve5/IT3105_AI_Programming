@@ -1,3 +1,7 @@
+import math
+
+import wandb
+
 from replay_buffer import Game, ReplayBuffer
 import numpy as np
 from mcts_node import MCTSNode
@@ -29,6 +33,7 @@ class GameManager:
         # Ensure MCTS has the latest parameters
         self.mcts.params = self.params
 
+        total_entropy = 0.0
         steps_taken = 0
         game_state, _ = self.env.reset()
         game = Game()
@@ -48,6 +53,10 @@ class GameManager:
             policy_distribution, root_value = self.mcts.extract_mcts_data(
                 root_node, self.num_actions
             )
+
+            # Calculate the entropy of the policy distribution for this step and accumulate it
+            step_entropy = -sum(p * math.log(p + 1e-8) for p in policy_distribution)
+            total_entropy += step_entropy
 
             # Sample action and step the environment
             action = np.random.choice(self.num_actions, p=policy_distribution)
@@ -69,6 +78,18 @@ class GameManager:
             # Move to the next state
             game_state = next_state
             steps_taken += 1
+
+        avg_entropy = total_entropy / steps_taken if steps_taken > 0 else 0
+        total_reward = sum(game.rewards)
+
+        wandb.log(
+            {
+                "Game/Episode_Length": steps_taken,
+                "Game/Total_Reward": total_reward,
+                "Game/Lines_Cleared": self.env.lines_cleared,
+                "MCTS/Average_Entropy": avg_entropy,
+            }
+        )
 
         self.replay_buffer.save_game(game)
         print(

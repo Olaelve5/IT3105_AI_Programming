@@ -7,6 +7,8 @@ import optax
 import flax.serialization
 import os
 from config import NUM_ACTIONS, BOARD_WIDTH, BOARD_HEIGHT
+import wandb
+
 
 rng = jax.random.PRNGKey(42)
 
@@ -23,6 +25,7 @@ SAVE_PARAMS = True
 
 # ================ Run training loop ================
 def main(save_params=SAVE_PARAMS):
+    wandb.init(project="muzero-tetris")
 
     # Model initialization
     model = MuZeroNet(num_actions=NUM_ACTIONS)

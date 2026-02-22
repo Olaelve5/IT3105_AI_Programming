@@ -34,10 +34,13 @@ class UMCTS:
             lambda p, s: self.model.apply(p, s, method=self.model.prediction)
         )
 
-    def run(self, root_node: MCTSNode, num_simulations=200):
+    def run(self, root_node: MCTSNode, num_simulations=100):
         """
         Runs the full algorithm.
         """
+        self.min_value = float("inf")
+        self.max_value = -float("inf")
+
         for _ in range(num_simulations):
             node: MCTSNode = root_node
             search_path = [node]
@@ -72,7 +75,7 @@ class UMCTS:
             action_probs = np.array(action_probs)
 
             # Extract the raw float value from the network
-            predicted_value = float(predicted_value[0, 0])
+            predicted_value = predicted_value.item()
 
             # Add some noise to encourage exploration
             if len(search_path) == 1:

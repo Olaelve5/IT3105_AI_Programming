@@ -4,13 +4,11 @@ from functools import partial
 from loss_function import loss_function
 import wandb
 
-wandb.init(project="muzero-tetris")
-
 
 @partial(jax.jit, static_argnums=(0, 2))
 def train_step(model, params, optimizer, opt_state, batch):
     # Calculate derivatives
-    grad_fn = jax.value_and_grad(loss_function)
+    grad_fn = jax.value_and_grad(loss_function, has_aux=True)
     (loss_value, metrics), grads = grad_fn(params, model, batch)
 
     # Update params

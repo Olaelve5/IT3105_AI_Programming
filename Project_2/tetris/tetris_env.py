@@ -33,6 +33,7 @@ class TetrisEnv:
         self.score = 0
         self.state = None
         self.step_counter = 0
+        self.lines_cleared = 0
 
         self.reset()
 
