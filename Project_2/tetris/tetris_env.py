@@ -30,6 +30,7 @@ class TetrisEnv:
 
         self.board = None
         self.active_piece = None
+        self.next_piece = None
         self.score = 0
         self.state = None
         self.step_counter = 0
@@ -49,11 +50,19 @@ class TetrisEnv:
 
         return self._get_observation(), {}
 
-    def spawn_new_piece(self):
+    def generate_new_piece(self):
         shape_name = random.choice(list(self.figure_pool.keys()))
         piece = self.figure_pool[shape_name]
         start_x = (self.width // 2) - 2
-        self.active_piece = TetrisPiece(piece, [start_x, 0])
+        return TetrisPiece(piece, [start_x, 0])
+
+    def spawn_new_piece(self):
+        if self.next_piece is None:
+            self.active_piece = self.generate_new_piece()
+        else:
+            self.active_piece = self.next_piece
+
+        self.next_piece = self.generate_new_piece()
 
     def step(self, action):
         reward = 0.0
@@ -95,8 +104,8 @@ class TetrisEnv:
                     + (new_max_height * 0.005)
                 )
 
-                # Guarantee a positive reward
-                reward = max(0.001, base_reward - board_penalty)
+                # Guarantee a non-negative reward
+                reward = max(0.0, base_reward - board_penalty)
 
                 # Check for line clears and add bonuses
                 lines_cleared = self.clear_lines()
@@ -109,7 +118,7 @@ class TetrisEnv:
 
                 # Small reward for fast dropping a piece, scaled by how far it dropped
                 if action == 4:
-                    reward += 0.001 * drop_distance
+                    reward += 0.005 * drop_distance
 
                 self.score += reward
 
@@ -164,8 +173,12 @@ class TetrisEnv:
         return drop_y
 
     def _get_observation(self):
-        """Creates a temporary obs of the board + the falling piece for the AI."""
-        obs = np.where(self.board > 0, 1.0, 0.0)
+        """
+        Creates a temporary obs of the board
+        + the falling piece for the AI
+        + the next piece
+        """
+        obs_board = np.where(self.board > 0, 1.0, 0.0)
 
         # Draw the active piece onto the copy
         if self.active_piece is not None:
@@ -177,7 +190,16 @@ class TetrisEnv:
                         board_x = self.active_piece.x + j
 
                         if 0 <= board_y < self.height and 0 <= board_x < self.width:
-                            obs[board_y, board_x] = 0.5
+                            obs_board[board_y, board_x] = 0.5
+
+        obs_next_piece = np.zeros((self.height, self.width), dtype=float)
+
+        if self.next_piece is not None:
+            # Normalize the ID to a value between 0 and 1 for the observation
+            max_id = max(details["id"] for details in self.figure_pool.values())
+            obs_next_piece.fill(self.next_piece.id / max_id)
+
+        obs = np.stack((obs_board, obs_next_piece), axis=-1)
 
         return obs
 
@@ -246,9 +268,7 @@ class TetrisEnv:
             )
             pygame.display.set_caption("MuZero Tetris")
             self.clock = pygame.time.Clock()
-            self.font = pygame.font.SysFont(
-                "assets/Jersey20-Regular.ttf", 30, bold=True
-            )
+            self.font = pygame.font.Font("Project_2/assets/Jersey20-Regular.ttf", 25)
 
             self.id_to_color = {
                 details["id"]: details["color"] for details in self.figure_pool.values()
@@ -299,20 +319,24 @@ class TetrisEnv:
                 self.id_to_color[self.active_piece.id],
             )
 
+        # Draw the next piece preview
+        self.draw_next_piece()
+
+        # Draw text info
         score_text = self.font.render(
             f"Reward: {self.score:.2f}", True, (255, 255, 255)
         )
-        self.screen.blit(score_text, [10, 25])
+        self.screen.blit(score_text, [15, self.window_height - 50])
 
         step_text = self.font.render(
             f"Steps: {self.step_counter}", True, (255, 255, 255)
         )
-        self.screen.blit(step_text, [10, 75])
+        self.screen.blit(step_text, [15, self.window_height - 80])
 
         lines_text = self.font.render(
             f"Lines: {self.lines_cleared}", True, (255, 255, 255)
         )
-        self.screen.blit(lines_text, [10, 125])
+        self.screen.blit(lines_text, [15, self.window_height - 110])
 
         pygame.display.flip()
         self.clock.tick(self.tick_speed)
@@ -333,6 +357,63 @@ class TetrisEnv:
                             self.grid_size - 1,
                         ]
                         pygame.draw.rect(self.screen, color, rect)
+
+    def draw_next_piece(self):
+        """Draws the next piece in a small preview box."""
+        if self.next_piece is None:
+            return
+
+        # Scale down the grid size for the preview
+        preview_grid_size = int(self.grid_size * 0.7)
+        box_size = preview_grid_size * 5
+
+        center_x = PADDING_LEFT // 2
+        box_x = center_x - (box_size // 2)
+
+        # Draw "Next Piece" title at the original top position
+        title_y = PADDING_TOP
+        title_text = self.font.render("Next Piece", True, (255, 255, 255))
+        title_rect = title_text.get_rect(centerx=center_x, top=title_y)
+        self.screen.blit(title_text, title_rect)
+
+        # Shift the preview box below the title
+        box_y = title_y + title_text.get_height() + 8
+
+        pygame.draw.rect(
+            self.screen,
+            (20, 20, 20),
+            [box_x, box_y, box_size, box_size],
+        )
+
+        shape = self.next_piece.active_shape
+        cols = [idx % 4 for idx in shape]
+        rows = [idx // 4 for idx in shape]
+
+        min_col, max_col = min(cols), max(cols)
+        min_row, max_row = min(rows), max(rows)
+
+        piece_width_px = (max_col - min_col + 1) * preview_grid_size
+        piece_height_px = (max_row - min_row + 1) * preview_grid_size
+
+        offset_x = (
+            box_x + (box_size - piece_width_px) // 2 - (min_col * preview_grid_size)
+        )
+        offset_y = (
+            box_y + (box_size - piece_height_px) // 2 - (min_row * preview_grid_size)
+        )
+
+        color = self.id_to_color[self.next_piece.id]
+
+        for i in range(4):
+            for j in range(4):
+                if i * 4 + j in shape:
+                    rect = [
+                        offset_x + j * preview_grid_size,
+                        offset_y + i * preview_grid_size,
+                        preview_grid_size - 1,
+                        preview_grid_size - 1,
+                    ]
+                    pygame.draw.rect(self.screen, color, rect)
 
     def close(self):
         if self.screen is not None:

@@ -72,7 +72,7 @@ def watch_game():
         lambda p, s: model.apply(p, s, method=model.representation)
     )
 
-    state, _ = env.reset()
+    game_state, _ = env.reset()
     done = False
     step_count = 0
 
@@ -85,7 +85,7 @@ def watch_game():
                 pygame.quit()
                 sys.exit()
 
-        state_jnp = jnp.expand_dims(jnp.array([state]), axis=-1)
+        state_jnp = jnp.array([game_state])
         abstract_state = representation_fn(params, state_jnp)
 
         root = MCTSNode(prior=1.0)
@@ -96,12 +96,12 @@ def watch_game():
         action = np.argmax(policy)
 
         print(f"Step {step_count} | Action: {action}")
-        state, reward, terminated, truncated, _ = env.step(action)
+        game_state, _, terminated, truncated, _ = env.step(action)
 
         if terminated or truncated:
             env.reset()
 
-        #done = terminated or truncated
+        # done = terminated or truncated
 
     print(f"Game Over — survived {step_count} steps.")
     time.sleep(2)

@@ -29,7 +29,7 @@ def main(save_params=SAVE_PARAMS):
 
     # Model initialization
     model = MuZeroNet(num_actions=NUM_ACTIONS)
-    dummy_obs = jnp.ones((1, BOARD_HEIGHT, BOARD_WIDTH, 1))
+    dummy_obs = jnp.ones((1, BOARD_HEIGHT, BOARD_WIDTH, 2))
     dummy_act = jnp.array([0])
     params = model.init(rng, dummy_obs, dummy_act, method=model.init_params)
 

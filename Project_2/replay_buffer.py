@@ -109,7 +109,7 @@ class ReplayBuffer:
             batch_discounts.append(discounts)
 
         return {
-            "observations": np.expand_dims(np.array(batch_obs), axis=-1),
+            "observations": np.array(batch_obs),
             "actions": np.array(batch_actions),
             "target_rewards": np.array(batch_rewards),
             "target_discounts": np.array(batch_discounts),

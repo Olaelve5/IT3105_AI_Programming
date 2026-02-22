@@ -44,7 +44,7 @@ class GameManager:
 
             # Initialize the root node of the MCTS
             root_node = MCTSNode(prior=1.0)
-            state_jnp = jnp.expand_dims(jnp.array([game_state]), axis=-1)
+            state_jnp = jnp.array([game_state])
             abstract_state = self.representation_fn(self.params, state_jnp)
             root_node.game_state = abstract_state
 
