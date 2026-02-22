@@ -1,6 +1,5 @@
 import pygame
 from tetris.tetris_env import TetrisEnv
-from config import BOARD_WIDTH, BOARD_HEIGHT
 
 env = TetrisEnv()
 observation, info = env.reset()

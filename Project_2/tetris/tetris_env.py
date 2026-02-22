@@ -99,26 +99,29 @@ class TetrisEnv:
 
                 # Penalize holes, bumpiness and height
                 board_penalty = (
-                    (new_holes * 0.03)
+                    (new_holes * 0.05)
                     + (new_bumpiness * 0.005)
                     + (new_max_height * 0.005)
                 )
 
+                step_reward = base_reward - board_penalty
+
                 # Guarantee a non-negative reward
-                reward = max(0.0, base_reward - board_penalty)
+                reward = max(0.001, step_reward)
+
+                # Small reward for fast dropping a piece
+                # Only if the drop resulted in a positive reward
+                if action == 4 and step_reward > 0:
+                    reward += 0.005 * drop_distance
 
                 # Check for line clears and add bonuses
                 lines_cleared = self.clear_lines()
                 if lines_cleared > 0:
-                    clear_reward = (lines_cleared**2) * 0.5
+                    clear_reward = lines_cleared * 0.5
                     print(
                         f"{'🔥' * lines_cleared} Cleared {lines_cleared} line{'s'}! Reward: {clear_reward}"
                     )
                     reward += clear_reward
-
-                # Small reward for fast dropping a piece, scaled by how far it dropped
-                if action == 4:
-                    reward += 0.005 * drop_distance
 
                 self.score += reward
 
@@ -126,7 +129,7 @@ class TetrisEnv:
 
         return (
             self._get_observation(),
-            round(reward, 2),
+            reward,
             terminated,
             False,
             {"drop_distance": drop_distance, "step_counter": self.step_counter},
