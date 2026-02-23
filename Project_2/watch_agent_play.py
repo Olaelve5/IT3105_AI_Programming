@@ -66,6 +66,7 @@ def watch_game():
     params = load_params(model, filepath)
 
     env = TetrisEnv(tick_speed=10)
+    env.set_active_pieces(["O", "I"])
     mcts = UMCTS(model, params)
 
     representation_fn = jax.jit(

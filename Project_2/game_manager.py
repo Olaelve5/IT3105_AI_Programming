@@ -15,7 +15,6 @@ from config import NUM_ACTIONS
 class GameManager:
     def __init__(self, model, params):
         self.replay_buffer = ReplayBuffer(capacity=5000)
-        self.env = TetrisEnv()
         self.model = model
         self.params = params
         self.num_actions = NUM_ACTIONS
@@ -25,17 +24,20 @@ class GameManager:
             lambda p, s: self.model.apply(p, s, method=self.model.representation)
         )
 
-    def play_single_episode(self, max_episode_length=1000):
+    def play_single_episode(self, max_episode_length, generation, active_pieces):
         """
         Simulates one episode and stores it in the replay buffer.
         """
+
+        local_env = TetrisEnv()
+        local_env.set_active_pieces(active_pieces)
 
         # Ensure MCTS has the latest parameters
         self.mcts.params = self.params
 
         total_entropy = 0.0
         steps_taken = 0
-        game_state, _ = self.env.reset()
+        game_state, _ = local_env.reset()
         game = Game()
 
         done = False
@@ -49,7 +51,7 @@ class GameManager:
             root_node.game_state = abstract_state
 
             # Run MCTS to populate the search tree and get action probabilities
-            self.mcts.run(root_node, num_simulations=50)
+            self.mcts.run(root_node)
             policy_distribution, root_value = self.mcts.extract_mcts_data(
                 root_node, self.num_actions
             )
@@ -60,7 +62,7 @@ class GameManager:
 
             # Sample action and step the environment
             action = np.random.choice(self.num_actions, p=policy_distribution)
-            next_state, reward, terminated, truncated, _ = self.env.step(action)
+            next_state, reward, terminated, truncated, _ = local_env.step(action)
 
             if terminated or truncated:
                 done = True
@@ -86,9 +88,10 @@ class GameManager:
             {
                 "Game/Episode_Length": steps_taken,
                 "Game/Total_Reward": total_reward,
-                "Game/Lines_Cleared": self.env.lines_cleared,
+                "Game/Lines_Cleared": local_env.lines_cleared,
                 "MCTS/Average_Entropy": avg_entropy,
-            }
+            },
+            step=generation,
         )
 
         self.replay_buffer.save_game(game)

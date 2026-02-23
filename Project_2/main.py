@@ -10,17 +10,14 @@ from config import NUM_ACTIONS, BOARD_WIDTH, BOARD_HEIGHT
 import wandb
 import concurrent.futures
 
-print("JAX is using:", jax.devices())
-
 rng = jax.random.PRNGKey(42)
 
 # ================ Hyperparameters ================
 NUM_GENERATIONS = 1000
-STEPS_PER_GENERATION = 1000
-GAMES_PER_GENERATION = 30
+GAMES_PER_GENERATION = 32
 TRAINING_STEPS_PER_GENERATION = 200
 LEARNING_RATE = 0.0002
-BATCH_SIZE = 128
+BATCH_SIZE = 96
 UNROLL_STEPS = 5
 SAVE_PARAMS = True
 
@@ -95,8 +92,8 @@ def main(save_params=SAVE_PARAMS):
             game_manager,
         )
 
-        if save_params:
-            if (gen + 1) % 25 == 0:
+        if (gen + 1) % 25 == 0:
+            if save_params:
                 os.makedirs("Project_2/saved_params", exist_ok=True)
                 save_path = f"Project_2/saved_params/{gen + 1}_generations.msgpack"
                 with open(save_path, "wb") as f:

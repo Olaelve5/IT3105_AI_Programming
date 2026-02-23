@@ -8,6 +8,21 @@ from mcts_node import MCTSNode
 from config import NUM_ACTIONS
 
 
+class MinMaxStats:
+    def __init__(self):
+        self.maximum = -float("inf")
+        self.minimum = float("inf")
+
+    def update(self, value):
+        self.maximum = max(self.maximum, value)
+        self.minimum = min(self.minimum, value)
+
+    def normalize(self, value):
+        if self.maximum > self.minimum:
+            return (value - self.minimum) / (self.maximum - self.minimum)
+        return 0.0
+
+
 class UMCTS:
     """
     The UMCTS class implements the Monte Carlo Tree Search algorithm.
@@ -19,9 +34,6 @@ class UMCTS:
         self.params = params
         self.num_actions = NUM_ACTIONS
         self.discount_factor = discount_factor
-
-        self.min_value = float("inf")
-        self.max_value = -float("inf")
 
         # JIT compile the model's recurrent and prediction functions for speed
         # This is a lot faster than calling apply with method=model.recurrent_inference every time
@@ -38,15 +50,14 @@ class UMCTS:
         """
         Runs the full algorithm.
         """
-        self.min_value = float("inf")
-        self.max_value = -float("inf")
+        min_max = MinMaxStats()
 
         for _ in range(num_simulations):
             node: MCTSNode = root_node
             search_path = [node]
 
             while node.is_expanded():
-                action, node = self.select_child(node)
+                action, node = self.select_child(node, min_max)
 
                 if node.game_state is None:
                     parent_state = search_path[-1].game_state
@@ -82,9 +93,9 @@ class UMCTS:
                 child = MCTSNode(action_probs[i])
                 node.children[i] = child
 
-            self.backpropagate(search_path, predicted_value)
+            self.backpropagate(search_path, predicted_value, min_max)
 
-    def select_child(self, node):
+    def select_child(self, node, min_max):
         """
         Select the child action/node with the highest UCB score.
         """
@@ -94,7 +105,7 @@ class UMCTS:
         best_child = None
 
         for action, child in node.children.items():
-            score = self.ucb_score(node, child)
+            score = self.ucb_score(node, child, min_max)
 
             if score > best_score:
                 best_score = score
@@ -103,7 +114,7 @@ class UMCTS:
 
         return best_action, best_child
 
-    def ucb_score(self, parent: MCTSNode, child: MCTSNode):
+    def ucb_score(self, parent: MCTSNode, child: MCTSNode, min_max: MinMaxStats):
         """
         Computes the UCB score for a (parent, child) edge
         """
@@ -127,22 +138,14 @@ class UMCTS:
 
         # Q(s, a) -> the value of this child node (average reward)
         if child_visit_count > 0:
-            value_score = self.normalize(child.value())
+            value_score = min_max.normalize(child.value())
         else:
             # Use the parent's value as a baseline estimate for unexplored nodes
             value_score = (
-                self.normalize(parent.value()) if parent.visit_count > 0 else 0.0
+                min_max.normalize(parent.value()) if parent.visit_count > 0 else 0.0
             )
 
         return prior_score + value_score
-
-    def update_stats(self, value):
-        """
-        Update min/max bounds used for value normalization.
-        """
-
-        self.max_value = max(self.max_value, value)
-        self.min_value = min(self.min_value, value)
 
     def normalize(self, value):
         """
@@ -154,7 +157,7 @@ class UMCTS:
         else:
             return 0.0
 
-    def backpropagate(self, search_path, value):
+    def backpropagate(self, search_path, value, min_max: MinMaxStats):
         """
         Walks the search path in reversed order, updating stats for each node.
         """
@@ -167,7 +170,7 @@ class UMCTS:
             node.value_sum += current_value
 
             # Update stats so we can normalize the values
-            self.update_stats(node.value())
+            min_max.update(node.value())
 
     def rollout(self, node: MCTSNode):
         """

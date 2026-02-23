@@ -42,6 +42,7 @@ class TetrisEnv:
         self.score = 0
         self.board = np.zeros((self.height, self.width), dtype=int)
         self.active_piece = None
+        self.next_piece = None
         self.state = "start"
         self.step_counter = 0
         self.lines_cleared = 0
@@ -99,9 +100,9 @@ class TetrisEnv:
 
                 # Penalize holes, bumpiness and height
                 board_penalty = (
-                    (new_holes * 0.05)
-                    + (new_bumpiness * 0.005)
-                    + (new_max_height * 0.005)
+                    (new_holes * 0.02)
+                    + (new_bumpiness * 0.002)
+                    + (new_max_height * 0.002)
                 )
 
                 step_reward = base_reward - board_penalty
@@ -112,7 +113,7 @@ class TetrisEnv:
                 # Small reward for fast dropping a piece
                 # Only if the drop resulted in a positive reward
                 if action == 4 and step_reward > 0:
-                    reward += 0.005 * drop_distance
+                    reward += 0.002 * drop_distance
 
                 # Check for line clears and add bonuses
                 lines_cleared = self.clear_lines()

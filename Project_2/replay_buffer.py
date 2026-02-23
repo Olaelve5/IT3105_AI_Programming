@@ -50,7 +50,7 @@ class Game:
 
 
 class ReplayBuffer:
-    def __init__(self, capacity=200):
+    def __init__(self, capacity=400):
         self.buffer = []
         self.capacity = capacity
 
@@ -61,7 +61,6 @@ class ReplayBuffer:
         self.buffer.append(game)
 
     def sample_batch(self, batch_size, unroll_steps, num_actions=5):
-        # We don't filter out short games anymore! Every game matters.
         if not self.buffer:
             return None
 
@@ -74,32 +73,27 @@ class ReplayBuffer:
 
         for _ in range(batch_size):
             game = random.choice(self.buffer)
-
-            # FIX 1: Allow sampling all the way to the very last frame!
             random_pos = random.randint(0, len(game) - 1)
-
             batch_obs.append(game.states[random_pos])
 
-            # Get the slices (they might be shorter than unroll_steps if near the end)
+            # Get the slices
             actions = game.actions[random_pos : random_pos + unroll_steps]
             rewards = game.rewards[random_pos : random_pos + unroll_steps]
             policies = game.child_visits[random_pos : random_pos + unroll_steps + 1]
             discounts = game.pred_discounts[random_pos : random_pos + unroll_steps]
 
-            # PADDING LOGIC: Fill the rest with zeros if we hit the end of the game
+            # Padding if we go beyond the end of the game
             while len(actions) < unroll_steps:
-                actions.append(0)  # Pad with "Do Nothing" action
-                rewards.append(0.0)  # Pad with 0 reward
-                discounts.append(0.0)  # Pad with discount of 0 (game over)
+                actions.append(0)
+                rewards.append(0.0)
+                discounts.append(0.0)
 
             while len(policies) < unroll_steps + 1:
-                # Pad policy with uniform distribution
                 policies.append([1.0 / num_actions] * num_actions)
 
             batch_actions.append(actions)
             batch_rewards.append(rewards)
 
-            # The compute_target_value function already handles out-of-bounds safely!
             target_vals = [
                 game.compute_target_value(random_pos + t, n_steps=unroll_steps)
                 for t in range(unroll_steps + 1)
