@@ -9,6 +9,7 @@ import os
 from config import NUM_ACTIONS, BOARD_WIDTH, BOARD_HEIGHT
 import wandb
 
+print("JAX is using:", jax.devices())
 
 rng = jax.random.PRNGKey(42)
 
@@ -52,42 +53,33 @@ def main(save_params=SAVE_PARAMS):
         print(f"===== Generation {gen + 1} =====")
         print(f"Playing {GAMES_PER_GENERATION} games... \n")
 
-        rewards_this_gen = []
-        steps_per_game = []
+        results = []
 
-        # Play games to gather experience
-        for _ in range(GAMES_PER_GENERATION):
-            game_manager.params = params
-            episode_reward, steps_taken = game_manager.play_single_episode(
-                max_episode_length=STEPS_PER_GENERATION
+        # Parallell games to speed up data collection
+        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+
+            futures = [
+                executor.submit(
+                    game_manager.play_single_episode,
+                    max_episode_length=500,
+                )
+                for _ in range(GAMES_PER_GENERATION)
+            ]
+
+            for future in concurrent.futures.as_completed(futures):
+                try:
+                    total_reward, steps = future.result()
+                    results.append((total_reward, steps))
+                except Exception as e:
+                    print(f"A game crashed: {e}")
+
+        if results:
+            avg_reward = sum(r[0] for r in results) / len(results)
+            avg_steps = sum(r[1] for r in results) / len(results)
+            max_steps = max(r[1] for r in results)
+            print(
+                f"🏆 Average Reward: {avg_reward:.2f} | ⏱️  Average Steps: {avg_steps:.0f} | 👑 Max: {max_steps}"
             )
-            rewards_this_gen.append(episode_reward)
-            steps_per_game.append(steps_taken)
-
-            if steps_taken > best_steps_record:
-                print(
-                    f"🎉 New record! Survived {steps_taken} steps (previous record: {best_steps_record})\n"
-                )
-                best_steps_record = steps_taken
-
-        avg_reward = sum(rewards_this_gen) / len(rewards_this_gen)
-        avg_steps = sum(steps_per_game) / len(steps_per_game)
-        reward_history.append(avg_reward)
-
-        print(f"\n🏆 Average Reward this generation: {avg_reward:.2f}")
-        print(f"⏱️  Average steps per game this generation: {avg_steps:.0f}")
-        print(f"👑 Current most steps record: {best_steps_record}\n")
-
-        if len(reward_history) > 1:
-            reward_change = avg_reward - reward_history[-2]
-            if reward_change > 0:
-                print(
-                    f"📈 Reward increased by {reward_change:.2f} from last generation!"
-                )
-            else:
-                print(
-                    f"📉 Reward decreased by {abs(reward_change):.2f} from last generation."
-                )
 
         # Train on the experience
         params, opt_state, avg_loss = perform_training_steps(
@@ -105,7 +97,7 @@ def main(save_params=SAVE_PARAMS):
             loss_history.append(avg_loss)
 
         if save_params:
-            if (gen + 1) % 10 == 0:
+            if (gen + 1) % 25 == 0:
                 os.makedirs("Project_2/saved_params", exist_ok=True)
                 save_path = f"Project_2/saved_params/{gen + 1}_generations.msgpack"
                 with open(save_path, "wb") as f:
@@ -113,8 +105,6 @@ def main(save_params=SAVE_PARAMS):
                 print(f"💾 Saved params after {gen + 1} generations -> {save_path}")
 
     print("\nTraining complete!")
-    print("Loss history:", loss_history)
-    print("Reward history:", reward_history)
 
 
 if __name__ == "__main__":

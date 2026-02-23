@@ -45,39 +45,35 @@ class UMCTS:
             node: MCTSNode = root_node
             search_path = [node]
 
-            # Walk down the search path until we find a leaf node (a node that isn't expanded yet)
             while node.is_expanded():
                 action, node = self.select_child(node)
 
                 if node.game_state is None:
                     parent_state = search_path[-1].game_state
-                    action = jnp.array([action])
 
-                    # Generate new state + reward
+                    action_arr = np.array([action], dtype=np.int32)
+
                     state, reward, discount, _, _ = self.recurrent_fn(
-                        self.params, parent_state, action
+                        self.params, parent_state, action_arr
                     )
 
                     node.game_state = state
-                    node.reward = float(reward[0, 0])
-                    node.discount = float(discount[0, 0])
+                    node.reward = float(np.asarray(reward)[0, 0])
+                    node.discount = float(np.asarray(discount)[0, 0])
 
                 search_path.append(node)
 
-            # node is now a leaf node
-            # Use the prediction nn to generate empty children and attatch them to the node
-            action_probs, predicted_value = self.prediction_fn(
+            action_probs_jax, predicted_value_jax = self.prediction_fn(
                 self.params, node.game_state
             )
 
-            # Convert action probabilities to sum up to 1
-            action_probs = jax.nn.softmax(action_probs[0])
-            action_probs = np.array(action_probs)
+            logits = np.asarray(action_probs_jax)[0]
+            predicted_value = float(np.asarray(predicted_value_jax)[0, 0])
 
-            # Extract the raw float value from the network
-            predicted_value = predicted_value.item()
+            max_logit = np.max(logits)
+            exp_logits = np.exp(logits - max_logit)
+            action_probs = exp_logits / np.sum(exp_logits)
 
-            # Add some noise to encourage exploration
             if len(search_path) == 1:
                 noise = np.random.dirichlet([0.3] * self.num_actions)
                 action_probs = 0.75 * action_probs + 0.25 * noise
@@ -86,7 +82,6 @@ class UMCTS:
                 child = MCTSNode(action_probs[i])
                 node.children[i] = child
 
-            # Walk up search_path and update stats
             self.backpropagate(search_path, predicted_value)
 
     def select_child(self, node):
