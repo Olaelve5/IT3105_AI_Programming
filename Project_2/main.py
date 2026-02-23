@@ -8,6 +8,7 @@ import flax.serialization
 import os
 from config import NUM_ACTIONS, BOARD_WIDTH, BOARD_HEIGHT
 import wandb
+import concurrent.futures
 
 print("JAX is using:", jax.devices())
 
@@ -45,9 +46,10 @@ def main(save_params=SAVE_PARAMS):
     print("\n========== 🚀 Starting Training ==========")
     print(f"Training for {NUM_GENERATIONS} generations...\n")
 
-    loss_history = []
-    reward_history = []
-    best_steps_record = 0
+    # Set up curriculum learning phases
+    current_phase = 1
+    game_manager.env.set_active_pieces(["O", "I"])
+    print("🎓 Curriculum Phase 1: The Basics (O and I blocks) \n")
 
     for gen in range(NUM_GENERATIONS):
         print(f"===== Generation {gen + 1} =====")
@@ -82,7 +84,7 @@ def main(save_params=SAVE_PARAMS):
             )
 
         # Train on the experience
-        params, opt_state, avg_loss = perform_training_steps(
+        params, opt_state, _ = perform_training_steps(
             model,
             params,
             optimizer,
@@ -93,9 +95,6 @@ def main(save_params=SAVE_PARAMS):
             game_manager,
         )
 
-        if avg_loss is not None:
-            loss_history.append(avg_loss)
-
         if save_params:
             if (gen + 1) % 25 == 0:
                 os.makedirs("Project_2/saved_params", exist_ok=True)
@@ -103,6 +102,18 @@ def main(save_params=SAVE_PARAMS):
                 with open(save_path, "wb") as f:
                     f.write(flax.serialization.to_bytes(params))
                 print(f"💾 Saved params after {gen + 1} generations -> {save_path}")
+
+        avg_reward = sum(r[0] for r in results) / len(results)
+
+        if current_phase == 1 and avg_reward >= 0.5:
+            print(f"\n🌟 THRESHOLD MET! Leveling up to Phase 2 at Generation {gen}! 🌟")
+            current_phase = 2
+            game_manager.env.set_active_pieces(["O", "I", "L", "J"])
+
+        elif current_phase == 2 and avg_reward >= 0.7:
+            print(f"\n🌟 THRESHOLD MET! Leveling up to Phase 3 (All Pieces)! 🌟")
+            current_phase = 3
+            game_manager.env.set_active_pieces(["O", "I", "L", "J", "S", "Z", "T"])
 
     print("\nTraining complete!")
 

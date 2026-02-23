@@ -450,3 +450,7 @@ class TetrisEnv:
         bumpiness = np.sum(np.abs(heights[:-1] - heights[1:]))
 
         return max_height, sum_height, holes, bumpiness
+
+    def set_active_pieces(self, piece_names):
+        """Updates the pool of figures the environment is allowed to spawn."""
+        self.figure_pool = {name: FIGURES[name] for name in piece_names}
