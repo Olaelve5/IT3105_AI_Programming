@@ -46,7 +46,7 @@ class UMCTS:
             lambda p, s: self.model.apply(p, s, method=self.model.prediction)
         )
 
-    def run(self, root_node: MCTSNode, num_simulations=100):
+    def run(self, root_node: MCTSNode, num_simulations=50):
         """
         Runs the full algorithm.
         """
@@ -146,16 +146,6 @@ class UMCTS:
             )
 
         return prior_score + value_score
-
-    def normalize(self, value):
-        """
-        Normalize a value to [0, 1] using running min/max bounds.
-        """
-
-        if self.max_value > self.min_value:
-            return (value - self.min_value) / (self.max_value - self.min_value)
-        else:
-            return 0.0
 
     def backpropagate(self, search_path, value, min_max: MinMaxStats):
         """

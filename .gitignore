@@ -1,5 +1,6 @@
 __pycache__/
 saved_params/
+saved_params copy/
 *.msgpack
 .env
 wandb/

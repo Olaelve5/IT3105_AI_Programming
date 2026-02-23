@@ -16,6 +16,7 @@ class GameManager:
     def __init__(self, model, params):
         self.replay_buffer = ReplayBuffer(capacity=5000)
         self.model = model
+        self.env = TetrisEnv()
         self.params = params
         self.num_actions = NUM_ACTIONS
         self.mcts = UMCTS(model, params)
@@ -29,15 +30,14 @@ class GameManager:
         Simulates one episode and stores it in the replay buffer.
         """
 
-        local_env = TetrisEnv()
-        local_env.set_active_pieces(active_pieces)
+        self.env.set_active_pieces(active_pieces)
 
         # Ensure MCTS has the latest parameters
         self.mcts.params = self.params
 
         total_entropy = 0.0
         steps_taken = 0
-        game_state, _ = local_env.reset()
+        game_state, _ = self.env.reset()
         game = Game()
 
         done = False
@@ -62,7 +62,7 @@ class GameManager:
 
             # Sample action and step the environment
             action = np.random.choice(self.num_actions, p=policy_distribution)
-            next_state, reward, terminated, truncated, _ = local_env.step(action)
+            next_state, reward, terminated, truncated, _ = self.env.step(action)
 
             if terminated or truncated:
                 done = True
@@ -88,7 +88,7 @@ class GameManager:
             {
                 "Game/Episode_Length": steps_taken,
                 "Game/Total_Reward": total_reward,
-                "Game/Lines_Cleared": local_env.lines_cleared,
+                "Game/Lines_Cleared": self.env.lines_cleared,
                 "MCTS/Average_Entropy": avg_entropy,
             },
             step=generation,

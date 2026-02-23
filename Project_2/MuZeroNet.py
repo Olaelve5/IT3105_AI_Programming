@@ -12,7 +12,7 @@ This way we don't have to initialize layers in a constructor -> we just pass the
 
 
 # A hyperparameter to control the size of our abstract state representation
-NUM_CHANNELS = 64
+NUM_CHANNELS = 32
 
 
 class RepresentationNet(nn.Module):
@@ -72,6 +72,9 @@ class DynamicsNet(nn.Module):
 
         # Flatten the next state and pass through a dense layer to predict the reward
         flat_x = x.reshape((x.shape[0], -1))
+        hidden = nn.Dense(256)(flat_x)
+        hidden = nn.relu(hidden)
+
         reward = nn.Dense(1)(flat_x)
 
         # Predict the discount (essentially whether the game is over)
@@ -93,11 +96,12 @@ class PredictionNet(nn.Module):
     def __call__(self, state):
         flat = state.reshape((state.shape[0], -1))
 
-        # Policy (Move Probabilities)
-        raw_policy_scores = nn.Dense(self.num_actions)(flat)
+        hidden = nn.Dense(256)(flat)
+        hidden = nn.relu(hidden)
 
-        # Value (Win probability or Score estimate)
-        value = nn.Dense(1)(flat)
+        # Two heads for policy and value
+        raw_policy_scores = nn.Dense(self.num_actions)(hidden)
+        value = nn.Dense(1)(hidden)
 
         return raw_policy_scores, value
 

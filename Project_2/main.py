@@ -8,15 +8,14 @@ import flax.serialization
 import os
 from config import NUM_ACTIONS, BOARD_WIDTH, BOARD_HEIGHT
 import wandb
-import concurrent.futures
 
 rng = jax.random.PRNGKey(42)
 
 # ================ Hyperparameters ================
-NUM_GENERATIONS = 1000
+NUM_GENERATIONS = 5000
 GAMES_PER_GENERATION = 32
 TRAINING_STEPS_PER_GENERATION = 200
-LEARNING_RATE = 0.0002
+LEARNING_RATE = 0.0001
 BATCH_SIZE = 96
 UNROLL_STEPS = 5
 SAVE_PARAMS = True
@@ -45,8 +44,9 @@ def main(save_params=SAVE_PARAMS):
 
     # Set up curriculum learning phases
     current_phase = 1
-    game_manager.env.set_active_pieces(["O", "I"])
     print("🎓 Curriculum Phase 1: The Basics (O and I blocks) \n")
+
+    best_avg_reward = -float("inf")
 
     for gen in range(NUM_GENERATIONS):
         print(f"===== Generation {gen + 1} =====")
@@ -54,23 +54,26 @@ def main(save_params=SAVE_PARAMS):
 
         results = []
 
-        # Parallell games to speed up data collection
-        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
-
-            futures = [
-                executor.submit(
-                    game_manager.play_single_episode,
-                    max_episode_length=500,
+        for _ in range(GAMES_PER_GENERATION):
+            active_pieces = (
+                ["O", "I"]
+                if current_phase == 1
+                else (
+                    ["O", "I", "L", "J"]
+                    if current_phase == 2
+                    else ["O", "I", "L", "J", "S", "Z", "T"]
                 )
-                for _ in range(GAMES_PER_GENERATION)
-            ]
+            )
 
-            for future in concurrent.futures.as_completed(futures):
-                try:
-                    total_reward, steps = future.result()
-                    results.append((total_reward, steps))
-                except Exception as e:
-                    print(f"A game crashed: {e}")
+            try:
+                total_reward, steps = game_manager.play_single_episode(
+                    max_episode_length=500,
+                    generation=gen,
+                    active_pieces=active_pieces,
+                )
+                results.append((total_reward, steps))
+            except Exception as e:
+                print(f"A game crashed: {e}")
 
         if results:
             avg_reward = sum(r[0] for r in results) / len(results)
@@ -92,6 +95,8 @@ def main(save_params=SAVE_PARAMS):
             game_manager,
         )
 
+        game_manager.params = params
+
         if (gen + 1) % 25 == 0:
             if save_params:
                 os.makedirs("Project_2/saved_params", exist_ok=True)
@@ -102,15 +107,25 @@ def main(save_params=SAVE_PARAMS):
 
         avg_reward = sum(r[0] for r in results) / len(results)
 
-        if current_phase == 1 and avg_reward >= 0.5:
+        # Save the best model based on average reward
+        if avg_reward > best_avg_reward:
+            best_avg_reward = avg_reward
+            if save_params:
+                os.makedirs("Project_2/saved_params", exist_ok=True)
+                best_save_path = "Project_2/saved_params/best_model.msgpack"
+                with open(best_save_path, "wb") as f:
+                    f.write(flax.serialization.to_bytes(params))
+                print(
+                    f"🏆 NEW HIGH SCORE! ({best_avg_reward:.2f}) Saved best brain -> {best_save_path}"
+                )
+
+        if current_phase == 1 and avg_reward >= 5.0:
             print(f"\n🌟 THRESHOLD MET! Leveling up to Phase 2 at Generation {gen}! 🌟")
             current_phase = 2
-            game_manager.env.set_active_pieces(["O", "I", "L", "J"])
 
-        elif current_phase == 2 and avg_reward >= 0.7:
+        elif current_phase == 2 and avg_reward >= 5.0:
             print(f"\n🌟 THRESHOLD MET! Leveling up to Phase 3 (All Pieces)! 🌟")
             current_phase = 3
-            game_manager.env.set_active_pieces(["O", "I", "L", "J", "S", "Z", "T"])
 
     print("\nTraining complete!")
 

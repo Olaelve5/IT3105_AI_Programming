@@ -1,5 +1,6 @@
 import random
 import numpy as np
+import collections
 
 
 class Game:
@@ -50,14 +51,10 @@ class Game:
 
 
 class ReplayBuffer:
-    def __init__(self, capacity=400):
-        self.buffer = []
-        self.capacity = capacity
+    def __init__(self, capacity=1500):
+        self.buffer = collections.deque(maxlen=capacity)
 
     def save_game(self, game: Game):
-        if len(self.buffer) >= self.capacity:
-            # Remove oldest game if full
-            self.buffer.pop(0)
         self.buffer.append(game)
 
     def sample_batch(self, batch_size, unroll_steps, num_actions=5):

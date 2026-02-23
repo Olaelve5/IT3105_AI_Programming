@@ -95,15 +95,13 @@ class TetrisEnv:
                     self.get_board_metrics()
                 )
 
-                # Large base reward
-                base_reward = 0.05
+                height_ratio = new_max_height / self.height
+
+                # Base reward encourages lower stacks, with a max of 0.05 for an empty board
+                base_reward = 0.05 * (1.0 - height_ratio)
 
                 # Penalize holes, bumpiness and height
-                board_penalty = (
-                    (new_holes * 0.02)
-                    + (new_bumpiness * 0.002)
-                    + (new_max_height * 0.002)
-                )
+                board_penalty = (new_holes * 0.03) + (new_bumpiness * 0.015)
 
                 step_reward = base_reward - board_penalty
 
@@ -113,12 +111,12 @@ class TetrisEnv:
                 # Small reward for fast dropping a piece
                 # Only if the drop resulted in a positive reward
                 if action == 4 and step_reward > 0:
-                    reward += 0.002 * drop_distance
+                    reward += 0.004 * drop_distance
 
                 # Check for line clears and add bonuses
                 lines_cleared = self.clear_lines()
                 if lines_cleared > 0:
-                    clear_reward = lines_cleared * 0.5
+                    clear_reward = lines_cleared**2
                     print(
                         f"{'🔥' * lines_cleared} Cleared {lines_cleared} line{'s'}! Reward: {clear_reward}"
                     )

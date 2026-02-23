@@ -12,7 +12,7 @@ from mcts_node import MCTSNode
 from tetris.tetris_env import TetrisEnv
 from config import NUM_ACTIONS, BOARD_WIDTH, BOARD_HEIGHT
 
-PARAMS_FOLDER = "Project_2/saved_params"
+PARAMS_FOLDER = "Project_2/saved_params copy"
 
 
 def list_available_params():
