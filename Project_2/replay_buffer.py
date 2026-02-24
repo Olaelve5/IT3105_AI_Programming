@@ -51,7 +51,7 @@ class Game:
 
 
 class ReplayBuffer:
-    def __init__(self, capacity=1500):
+    def __init__(self, capacity=3000):
         self.buffer = collections.deque(maxlen=capacity)
 
     def save_game(self, game: Game):

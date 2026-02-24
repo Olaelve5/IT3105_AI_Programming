@@ -36,6 +36,10 @@ class TetrisEnv:
         self.step_counter = 0
         self.lines_cleared = 0
 
+        self.current_holes = 0
+        self.current_bumpiness = 0
+        self.current_height = 0
+
         self.reset()
 
     def reset(self):
@@ -46,6 +50,9 @@ class TetrisEnv:
         self.state = "start"
         self.step_counter = 0
         self.lines_cleared = 0
+        self.current_holes = 0
+        self.current_bumpiness = 0
+        self.current_height = 0
 
         self.spawn_new_piece()
 
@@ -91,18 +98,23 @@ class TetrisEnv:
                 reward = 0.0
                 return self._get_observation(), reward, True, False, {}
             else:
-                new_max_height, new_sum_height, new_holes, new_bumpiness = (
-                    self.get_board_metrics()
-                )
+                new_max_height, _, new_holes, new_bumpiness = self.get_board_metrics()
 
-                height_ratio = new_max_height / self.height
+                delta_holes = new_holes - self.current_holes
+                delta_bumpiness = new_bumpiness - self.current_bumpiness
+                delta_height = new_max_height - self.current_height
 
-                # Base reward encourages lower stacks, with a max of 0.05 for an empty board
-                base_reward = 0.05 * (1.0 - height_ratio)
+                self.current_holes = new_holes
+                self.current_bumpiness = new_bumpiness
+                self.current_height = new_max_height
 
-                # Penalize holes, bumpiness and height
-                board_penalty = (new_holes * 0.03) + (new_bumpiness * 0.015)
+                # Large base reward
+                base_reward = 0.05
 
+                hole_penalty = max(0, delta_holes) * 0.05
+                bump_penalty = max(0, delta_bumpiness) * 0.005
+                height_penalty = max(0, delta_height) * 0.005
+                board_penalty = hole_penalty + bump_penalty + height_penalty
                 step_reward = base_reward - board_penalty
 
                 # Guarantee a non-negative reward
@@ -116,7 +128,7 @@ class TetrisEnv:
                 # Check for line clears and add bonuses
                 lines_cleared = self.clear_lines()
                 if lines_cleared > 0:
-                    clear_reward = lines_cleared**2
+                    clear_reward = lines_cleared * 2.5
                     print(
                         f"{'🔥' * lines_cleared} Cleared {lines_cleared} line{'s'}! Reward: {clear_reward}"
                     )

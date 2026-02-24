@@ -15,6 +15,7 @@ rng = jax.random.PRNGKey(42)
 NUM_GENERATIONS = 5000
 GAMES_PER_GENERATION = 32
 TRAINING_STEPS_PER_GENERATION = 200
+NUM_SIMULATIONS = 75
 LEARNING_RATE = 0.0001
 BATCH_SIZE = 96
 UNROLL_STEPS = 5
@@ -36,7 +37,7 @@ def main(save_params=SAVE_PARAMS):
     opt_state = optimizer.init(params)
 
     # Game manager
-    game_manager = GameManager(model, params)
+    game_manager = GameManager(model, params, mcts_num_simulations=NUM_SIMULATIONS)
 
     # Main training loop
     print("\n========== 🚀 Starting Training ==========")
@@ -119,11 +120,11 @@ def main(save_params=SAVE_PARAMS):
                     f"🏆 NEW HIGH SCORE! ({best_avg_reward:.2f}) Saved best brain -> {best_save_path}"
                 )
 
-        if current_phase == 1 and avg_reward >= 5.0:
+        if current_phase == 1 and avg_reward >= 3.0:
             print(f"\n🌟 THRESHOLD MET! Leveling up to Phase 2 at Generation {gen}! 🌟")
             current_phase = 2
 
-        elif current_phase == 2 and avg_reward >= 5.0:
+        elif current_phase == 2 and avg_reward >= 3.0:
             print(f"\n🌟 THRESHOLD MET! Leveling up to Phase 3 (All Pieces)! 🌟")
             current_phase = 3
 

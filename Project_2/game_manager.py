@@ -13,13 +13,14 @@ from config import NUM_ACTIONS
 
 
 class GameManager:
-    def __init__(self, model, params):
+    def __init__(self, model, params, mcts_num_simulations):
         self.replay_buffer = ReplayBuffer(capacity=5000)
         self.model = model
         self.env = TetrisEnv()
         self.params = params
         self.num_actions = NUM_ACTIONS
         self.mcts = UMCTS(model, params)
+        self.mcts_num_simulations = mcts_num_simulations
 
         self.representation_fn = jax.jit(
             lambda p, s: self.model.apply(p, s, method=self.model.representation)
@@ -51,7 +52,7 @@ class GameManager:
             root_node.game_state = abstract_state
 
             # Run MCTS to populate the search tree and get action probabilities
-            self.mcts.run(root_node)
+            self.mcts.run(root_node, num_simulations=self.mcts_num_simulations)
             policy_distribution, root_value = self.mcts.extract_mcts_data(
                 root_node, self.num_actions
             )

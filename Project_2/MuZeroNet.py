@@ -27,9 +27,8 @@ class RepresentationNet(nn.Module):
 
     @nn.compact
     def __call__(self, x):
-        # Downsample: strides=(2, 2) reduces 20x10 to 10x5
         x = nn.Conv(
-            features=NUM_CHANNELS, kernel_size=(3, 3), strides=(2, 2), padding="SAME"
+            features=NUM_CHANNELS, kernel_size=(3, 3), padding="SAME"
         )(x)
         x = nn.relu(x)
 
