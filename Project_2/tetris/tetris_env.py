@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import pygame
 from tetris.tetris_shape import FIGURES, TetrisPiece
@@ -58,8 +59,16 @@ class TetrisEnv:
 
         return self._get_observation(), {}
 
-    def generate_new_piece(self):
-        shape_name = random.choice(list(self.figure_pool.keys()))
+    def generate_new_piece(self, id=None):
+        if id is not None:
+            shape_name = next(
+                name
+                for name, details in self.figure_pool.items()
+                if details["id"] == id
+            )
+        else:
+            shape_name = random.choice(list(self.figure_pool.keys()))
+
         piece = self.figure_pool[shape_name]
         start_x = (self.width // 2) - 2
         return TetrisPiece(piece, [start_x, 0])
@@ -72,7 +81,7 @@ class TetrisEnv:
 
         self.next_piece = self.generate_new_piece()
 
-    def step(self, action):
+    def step(self, action, spawn_new_piece=True, clear_lines=True):
         reward = 0.0
         self.step_counter += 1
 
@@ -86,7 +95,7 @@ class TetrisEnv:
         ):
             self.active_piece.y += 1
         else:
-            self.freeze_shape()
+            self.freeze_shape(spawn_new=spawn_new_piece)
             shape_locked = True
 
         # Handle rewards / game over
@@ -126,7 +135,11 @@ class TetrisEnv:
                     reward += 0.004 * drop_distance
 
                 # Check for line clears and add bonuses
-                lines_cleared = self.clear_lines()
+                if clear_lines:
+                    lines_cleared = self.clear_lines()
+                else:
+                    lines_cleared = 0
+
                 if lines_cleared > 0:
                     clear_reward = lines_cleared * 2.5
                     print(
@@ -241,7 +254,7 @@ class TetrisEnv:
                         return True
         return False
 
-    def freeze_shape(self):
+    def freeze_shape(self, spawn_new=True):
         """
         Saves the active shape into the board and spawns a new one.
         """
@@ -256,7 +269,8 @@ class TetrisEnv:
                     if board_y >= 0:
                         self.board[board_y, board_x] = self.active_piece.id
 
-        self.spawn_new_piece()
+        if spawn_new:
+            self.spawn_new_piece()
 
     def clear_lines(self):
         # Rows with no 0s are full
@@ -272,7 +286,7 @@ class TetrisEnv:
             self.lines_cleared += num_cleared
         return num_cleared
 
-    def render(self):
+    def render(self, ghost_piece=False, tick=True):
         # Initialize Pygame on the first render call
         if self.screen is None:
             pygame.init()
@@ -282,7 +296,12 @@ class TetrisEnv:
             )
             pygame.display.set_caption("MuZero Tetris")
             self.clock = pygame.time.Clock()
-            self.font = pygame.font.Font("Project_2/assets/Jersey20-Regular.ttf", 25)
+            self.font = pygame.font.Font(
+                os.path.join(
+                    os.path.dirname(__file__), "..", "assets", "Jersey20-Regular.ttf"
+                ),
+                25,
+            )
 
             self.id_to_color = {
                 details["id"]: details["color"] for details in self.figure_pool.values()
@@ -318,13 +337,22 @@ class TetrisEnv:
         # Draw the falling piece
         if self.active_piece is not None:
             # Draw the shadow of where the piece would land
-            drop_y = self.get_drop_position()
-            self.draw_piece(
-                self.active_piece.active_shape,
-                self.active_piece.x,
-                drop_y,
-                (100, 100, 100),
-            )
+            # or the ghost piece if enabled
+            if not ghost_piece:
+                drop_y = self.get_drop_position()
+                self.draw_piece(
+                    self.active_piece.active_shape,
+                    self.active_piece.x,
+                    drop_y,
+                    (100, 100, 100),
+                )
+            else:
+                self.draw_piece(
+                    ghost_piece.active_shape,
+                    ghost_piece.x,
+                    ghost_piece.y,
+                    (100, 100, 100),
+                )
 
             self.draw_piece(
                 self.active_piece.active_shape,
@@ -353,7 +381,9 @@ class TetrisEnv:
         self.screen.blit(lines_text, [15, self.window_height - 110])
 
         pygame.display.flip()
-        self.clock.tick(self.tick_speed)
+
+        if tick:
+            self.clock.tick(self.tick_speed)
 
     def draw_piece(self, shape, offset_x, offset_y, color):
         """Helper function to draw a piece at a given position with a given color."""
@@ -465,3 +495,20 @@ class TetrisEnv:
     def set_active_pieces(self, piece_names):
         """Updates the pool of figures the environment is allowed to spawn."""
         self.figure_pool = {name: FIGURES[name] for name in piece_names}
+
+    def inject_sandbox_state(self, board_state, target_pos, target_rotation):
+        """
+        Generates single piece scenarios for training the micro agent.
+        """
+
+        self.board = board_state.copy()
+        self.active_piece = self.generate_new_piece()
+        self.current_rotation = 0
+
+        # Save the target destination for reward calculation
+        self.target_x = target_pos[0]
+        self.target_y = target_pos[1]
+        self.target_target_rotation = target_rotation
+
+        self.done = False
+        return self._get_observation(), {}
