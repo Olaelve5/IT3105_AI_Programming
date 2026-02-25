@@ -46,7 +46,7 @@ class UMCTS:
             lambda p, s: self.model.apply(p, s, method=self.model.prediction)
         )
 
-    def run(self, root_node: MCTSNode, num_simulations=100):
+    def run(self, root_node: MCTSNode, num_simulations=50):
         """
         Runs the full algorithm.
         """

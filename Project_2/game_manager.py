@@ -62,7 +62,14 @@ class GameManager:
             total_entropy += step_entropy
 
             # Sample action and step the environment
-            action = np.random.choice(self.num_actions, p=policy_distribution)
+            # Use a temperature parameter to control exploration vs exploitation
+            if steps_taken < 50:
+                # Temperature = 1.0 (Exploration)
+                action = np.random.choice(self.num_actions, p=policy_distribution)
+            else:
+                # Temperature = 0.0 (Exploitation/Greedy)
+                action = int(np.argmax(policy_distribution))
+
             next_state, reward, terminated, truncated, _ = self.env.step(action)
 
             if terminated or truncated:
@@ -85,19 +92,9 @@ class GameManager:
         avg_entropy = total_entropy / steps_taken if steps_taken > 0 else 0
         total_reward = sum(game.rewards)
 
-        wandb.log(
-            {
-                "Game/Episode_Length": steps_taken,
-                "Game/Total_Reward": total_reward,
-                "Game/Lines_Cleared": self.env.lines_cleared,
-                "MCTS/Average_Entropy": avg_entropy,
-            },
-            step=generation,
-        )
-
         self.replay_buffer.save_game(game)
         print(
             f"Game finished in {steps_taken} steps with total reward {sum(game.rewards):.2f}"
         )
 
-        return sum(game.rewards), steps_taken
+        return sum(game.rewards), steps_taken, self.env.lines_cleared, avg_entropy
