@@ -1,4 +1,4 @@
-from micro_agent.TrainingScenarioGenerator import TrainingScenarioGenerator
+from Project_2.micro_agent.ScenarioGenerator import TrainingScenarioGenerator
 import pygame
 import random
 

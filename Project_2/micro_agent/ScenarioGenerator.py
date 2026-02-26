@@ -1,9 +1,10 @@
 import numpy as np
 import random
+import json
 from tetris.tetris_env import TetrisEnv
 
 
-class TrainingScenarioGenerator:
+class ScenarioGenerator:
     def __init__(self, board_height=20, board_width=10):
         self.h = board_height
         self.w = board_width
@@ -102,36 +103,41 @@ class TrainingScenarioGenerator:
         }
 
     def get_dynamic_overhang(self):
-        """Generates a horizontal cave for an L-piece or J-piece tuck."""
+        """Generates a slide-tuck cave scenario for an L or J piece."""
         stack_height = random.randint(3, 6)
         start_col = random.randint(0, self.w - 4)
 
         is_l_piece = random.choice([True, False])
 
         if is_l_piece:
-            shaft_col = start_col
             piece_id = 4
             target_rot = 1
             target_x = start_col
+            overhang_col = start_col
+            shaft_cols = [start_col + 1, start_col + 2, start_col + 3]
         else:
-            shaft_col = start_col + 2
             piece_id = 5
             target_rot = 3
-            target_x = start_col - 1
+            target_x = start_col
+            overhang_col = start_col + 3
+            shaft_cols = [start_col, start_col + 1, start_col + 2]
 
-        board = self._get_noisy_base(stack_height, keep_clear_cols=[shaft_col])
-        cave_y = self.h - stack_height + 1
+        board = self._get_noisy_base(stack_height, keep_clear_cols=shaft_cols)
 
-        board[cave_y, start_col : start_col + 3] = 0
+        cave_top_y = self.h - stack_height
+        cave_bot_y = self.h - stack_height + 1
 
-        board[cave_y - 1, shaft_col] = 0
-        board[cave_y - 2, shaft_col] = 0
+        board[cave_top_y, start_col : start_col + 4] = 0
+        board[cave_bot_y, start_col : start_col + 4] = 0
+
+        board[cave_top_y - 1, overhang_col] = 1
+        board[cave_top_y - 2, overhang_col] = 1
 
         return {
             "name": f"dynamic_overhang_{'L' if is_l_piece else 'J'}",
             "board": board,
             "piece_id": piece_id,
-            "target_pos": (target_x, cave_y - 1),
+            "target_pos": (target_x, cave_top_y),
             "target_rot": target_rot,
         }
 
@@ -157,40 +163,60 @@ class TrainingScenarioGenerator:
         }
 
     def get_dynamic_z_spin(self):
-        """Generates a staggered staircase hole requiring a Z-piece rotation placement"""
-        stack_height = random.randint(4, 6)
-        z_col = random.randint(0, self.w - 4)
+        """Generates a dogleg pattern that can be solved by a Z piece with the right setup moves."""
+        stack_height = 8
+        start_col = random.randint(1, self.w - 5)
 
-        board = self._get_noisy_base(
-            stack_height, keep_clear_cols=[z_col + 1, z_col + 2]
-        )
-        z_y = self.h - stack_height + 1
+        is_z_piece = random.choice([True, False])
+        shift_dir = random.choice([-1, 1])
 
-        board[z_y, z_col : z_col + 2] = 0
-        board[z_y - 1, z_col + 1 : z_col + 3] = 0
-        board[z_y - 2, z_col + 1 : z_col + 3] = 0
+        if shift_dir == 1:
+            keep_cols = [start_col + 1, start_col + 2, start_col + 3]
+        else:
+            keep_cols = [start_col - 1, start_col, start_col + 1]
+
+        board = self._get_noisy_base(stack_height, keep_clear_cols=keep_cols)
+
+        board[self.h - 3 :, start_col : start_col + 3] = 0
+
+        if shift_dir == 1:
+            board[self.h - 6 : self.h - 3, start_col : start_col + 4] = 0
+        else:
+            board[self.h - 6 : self.h - 3, start_col - 1 : start_col + 3] = 0
+
+        if shift_dir == 1:
+            board[self.h - stack_height : self.h - 6, start_col + 1 : start_col + 4] = 0
+        else:
+            board[self.h - stack_height : self.h - 6, start_col - 1 : start_col + 2] = 0
+
+        if is_z_piece:
+            board[self.h - 1, start_col + 2] = 1
+            piece_id = 3
+            target_x = start_col - 1
+        else:
+            board[self.h - 1, start_col] = 1
+            piece_id = 2
+            target_x = start_col
 
         return {
-            "name": "dynamic_z_spin",
+            "name": f"dynamic_dogleg_{'Z' if is_z_piece else 'S'}",
             "board": board,
-            "piece_id": 3,
-            "target_pos": (z_col - 1, z_y - 2),
+            "piece_id": piece_id,
+            "target_pos": (target_x, self.h - 3),
             "target_rot": 0,
         }
 
     def get_random_tricky_scenario(self):
         """Pick one of the tricky scenarios at random and return it."""
         scenarios = [
-            #self.get_dynamic_well,
+            self.get_dynamic_well,
             self.get_dynamic_overhang,
-            # self.get_dynamic_t_spin,
-            # self.get_dynamic_z_spin,
+            self.get_dynamic_t_spin,
+            self.get_dynamic_z_spin,
         ]
         return random.choice(scenarios)()
 
-    def get_random_scenario(self, tricky=False):
-        """Return either a random guaranteed-reachable scenario or a random tricky scenario."""
-        if tricky:
-            return self.get_random_tricky_scenario()
-        else:
-            return self.generate_normal_scenario()
+
+if __name__ == "__main__":
+    generator = ScenarioGenerator()
+    generator.generate_test_set(750)

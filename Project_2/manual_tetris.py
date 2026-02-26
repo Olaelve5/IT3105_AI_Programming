@@ -1,13 +1,27 @@
 import pygame
 from tetris.tetris_env import TetrisEnv
+from Project_2.micro_agent.ScenarioGenerator import ScenarioGenerator
 
-env = TetrisEnv()
+env = TetrisEnv(tick_speed=5)
 observation, info = env.reset()
 
 print("Controls: Left, Right, Up (Rotate), Down (Fast Drop). Q to quit.")
 
+
+def load_scenario(env, scenario):
+    env.board = scenario["board"]
+    env.active_piece = env.generate_new_piece(scenario["piece_id"])
+    ghost_piece = env.generate_new_piece(scenario["piece_id"])
+    ghost_piece.x, ghost_piece.y = scenario["target_pos"]
+    ghost_piece.rotation = scenario["target_rot"]
+    ghost_piece.active_shape = ghost_piece.shapes[ghost_piece.rotation]
+    return ghost_piece
+
+
 running = True
 total_reward = 0
+test_scenario = ScenarioGenerator().get_random_tricky_scenario()
+load_scenario(env, test_scenario)
 
 while running:
     env.render()
@@ -39,6 +53,8 @@ while running:
     if terminated:
         print(f"Game Over! Total Score: {total_reward:.2f}")
         env.reset()
+        test_scenario = ScenarioGenerator().get_random_tricky_scenario()
+        load_scenario(env, test_scenario)
         total_reward = 0
 
 env.close()
