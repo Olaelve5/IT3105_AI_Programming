@@ -2,10 +2,11 @@ import numpy as np
 import random
 import json
 from tetris.tetris_env import TetrisEnv
+from config import BOARD_HEIGHT, BOARD_WIDTH
 
 
 class ScenarioGenerator:
-    def __init__(self, board_height=20, board_width=10):
+    def __init__(self, board_height=BOARD_HEIGHT, board_width=BOARD_WIDTH):
         self.h = board_height
         self.w = board_width
         self.env = TetrisEnv()
@@ -206,7 +207,7 @@ class ScenarioGenerator:
             "target_rot": 0,
         }
 
-    def get_random_tricky_scenario(self):
+    def generate_tricky_scenario(self):
         """Pick one of the tricky scenarios at random and return it."""
         scenarios = [
             self.get_dynamic_well,

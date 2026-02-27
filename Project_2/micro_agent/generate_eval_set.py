@@ -18,7 +18,7 @@ def _to_jsonable(obj):
     return obj
 
 
-def generate_test_set(n, generator):
+def generate_eval_set(n, generator):
     """
     Generates a set of test scenarios, one of each type, for evaluation purposes.
     Saves it to a JSON file that can be loaded by the agent during evaluation.
@@ -33,10 +33,10 @@ def generate_test_set(n, generator):
 
     clean_scenarios = _to_jsonable(scenarios)
 
-    with open("micro_agent/test_scenarios.json", "w") as f:
+    with open("micro_agent/evaluation_set.json", "w") as f:
         json.dump(clean_scenarios, f, indent=2)
 
 
 if __name__ == "__main__":
     generator = ScenarioGenerator()
-    generate_test_set(750, generator)
+    generate_eval_set(750, generator)

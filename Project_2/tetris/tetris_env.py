@@ -98,6 +98,11 @@ class TetrisEnv:
             self.freeze_shape(spawn_new=spawn_new_piece)
             shape_locked = True
 
+            # For the custom micro wrapper:
+            # If the piece is locked, the episode is terminated
+            if not spawn_new_piece:
+                return (None, None, True, None, {})
+
         # Handle rewards / game over
         if shape_locked:
             if self.check_collision(
@@ -496,19 +501,19 @@ class TetrisEnv:
         """Updates the pool of figures the environment is allowed to spawn."""
         self.figure_pool = {name: FIGURES[name] for name in piece_names}
 
-    def inject_sandbox_state(self, board_state, target_pos, target_rotation):
+    def load_traning_scenario(self, board_state, target_pos, target_rot):
         """
         Generates single piece scenarios for training the micro agent.
         """
 
-        self.board = board_state.copy()
+        self.board = np.array(board_state, dtype=int, copy=True)
         self.active_piece = self.generate_new_piece()
         self.current_rotation = 0
 
         # Save the target destination for reward calculation
         self.target_x = target_pos[0]
         self.target_y = target_pos[1]
-        self.target_target_rotation = target_rotation
+        self.target_target_rotation = target_rot
 
         self.done = False
         return self._get_observation(), {}
