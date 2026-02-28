@@ -42,32 +42,29 @@ class MicroEnvWrapper:
                 and self.env.active_piece.y == self.target_pos[1]
                 and self.env.active_piece.rotation == self.target_rot
             ):
-                # Hitting the target
                 reward = 10.0
             else:
-                # Did not hit target
-                reward = -1.0
-        else:
-            # Tiny reward for getting closer, tiny penalty for moving away
-            current_distance = self._get_distance()
-            if current_distance < self.prev_distance:
-                reward = 0.1
-            elif current_distance > self.prev_distance:
-                reward = -0.1
+                distance = self._get_distance()
 
-            self.prev_distance = current_distance
+                reward = -2.0 - (0.1 * distance)
+
+                if distance == 0 and self.env.active_piece.rotation != self.target_rot:
+                    reward = -2.1
 
         return self._get_obs(), reward, done
 
     def load_scenario(self, s):
-        self.env.load_traning_scenario(
+        self.env.load_training_scenario(
             board_state=s["board"],
             target_pos=s["target_pos"],
             target_rot=s["target_rot"],
+            piece_id=s["piece_id"],
         )
 
         self.target_pos = tuple(s["target_pos"])
         self.target_rot = int(s["target_rot"])
+
+        self.env.active_piece = self.env.generate_new_piece(id=int(s["piece_id"]))
 
         target_piece = self.env.generate_new_piece(int(s["piece_id"]))
         target_piece.rotation = self.target_rot
@@ -112,3 +109,21 @@ class MicroEnvWrapper:
         # Stack and return them as the obs
         # Shape is (Board Height, Board Width, 3)
         return np.stack((obs_board, obs_active, obs_target), axis=-1)
+
+    def render(self):
+        """
+        Renders the Pygame window showing the board, the falling piece,
+        and the target 'ghost' location.
+        """
+
+        class GhostTarget:
+            def __init__(self, shape, x, y):
+                self.active_shape = shape
+                self.x = x
+                self.y = y
+
+        ghost = GhostTarget(
+            shape=self.target_shape, x=self.target_pos[0], y=self.target_pos[1]
+        )
+
+        self.env.render(ghost_piece=ghost, tick=True)

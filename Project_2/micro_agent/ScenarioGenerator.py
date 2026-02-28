@@ -217,6 +217,12 @@ class ScenarioGenerator:
         ]
         return random.choice(scenarios)()
 
+    def get_random_scenario(self, tricky=False):
+        if tricky:
+            return self.generate_tricky_scenario()
+        else:
+            return self.generate_normal_scenario()
+
 
 if __name__ == "__main__":
     generator = ScenarioGenerator()

@@ -501,13 +501,13 @@ class TetrisEnv:
         """Updates the pool of figures the environment is allowed to spawn."""
         self.figure_pool = {name: FIGURES[name] for name in piece_names}
 
-    def load_traning_scenario(self, board_state, target_pos, target_rot):
+    def load_training_scenario(self, board_state, target_pos, target_rot, piece_id=0):
         """
         Generates single piece scenarios for training the micro agent.
         """
 
         self.board = np.array(board_state, dtype=int, copy=True)
-        self.active_piece = self.generate_new_piece()
+        self.active_piece = self.generate_new_piece(id=piece_id)
         self.current_rotation = 0
 
         # Save the target destination for reward calculation

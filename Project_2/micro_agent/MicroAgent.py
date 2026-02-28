@@ -16,15 +16,15 @@ class MicroAgentNetwork(nn.Module):
     def __call__(self, x):
         # x shape expects: (batch_size, 20, 10, 3)
 
-        x = nn.Conv(features=16, kernel_size=(3, 3), strides=(1, 1), padding="SAME")(x)
+        x = nn.Conv(features=32, kernel_size=(3, 3), strides=(1, 1), padding="SAME")(x)
         x = nn.relu(x)
 
-        x = nn.Conv(features=32, kernel_size=(3, 3), strides=(2, 2), padding="SAME")(x)
+        x = nn.Conv(features=64, kernel_size=(3, 3), strides=(1, 1), padding="SAME")(x)
         x = nn.relu(x)
 
         x = x.reshape((x.shape[0], -1))
 
-        x = nn.Dense(features=256)(x)
+        x = nn.Dense(features=512)(x)
         x = nn.relu(x)
 
         q_values = nn.Dense(features=self.action_dim)(x)
@@ -50,10 +50,8 @@ class MicroAgent:
 
         # Hyperparameters
         self.epsilon = 1.0
-        self.epsilon_min = 0.05
-        self.epsilon_decay = 0.995
         self.gamma = 0.99
-        self.tau = 0.005
+        self.tau = 0.01
 
     def choose_action(self, observation, evaluate=False):
         """Choose an action using epsilon-greedy policy. If evaluate is True, always choose the best action."""

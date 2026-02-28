@@ -40,6 +40,8 @@ def train():
     env = TetrisEnv()
     env_wrapper = MicroEnvWrapper(env=env)
     agent = MicroAgent()
+    #agent.load_model("micro_agent/best_micro_agent.msgpack")
+    #agent.epsilon = 0.05
     buffer = ReplayBuffer()
     generator = ScenarioGenerator()
     eval_scenarios = load_eval_set()
@@ -47,19 +49,21 @@ def train():
     wandb.init(
         project="tetris-micro-agent",
         name="ddqn-run-01",
+        # id="uvz82cgd",
+        # resume="must",
         config={
-            "num_episodes": 50000,
-            "batch_size": 64,
+            "num_episodes": 300000,
+            "batch_size": 128,
             "gamma": 0.99,
-            "tau": 0.005,
+            "tau": 0.01,
             "epsilon_decay": 0.995,
         },
     )
 
     # Training settings
-    num_episodes = 50000
-    batch_size = 64
-    eval_frequency = 500
+    num_episodes = 500000
+    batch_size = 128
+    eval_frequency = 1000
     eval_highscore = 0.0
 
     # Trackers for logging
@@ -67,17 +71,27 @@ def train():
     recent_losses = deque(maxlen=50)
     print_frequency = 50
 
+    start_episode = 100000
+    additional_episodes = 100000
+
     # Main training loop
-    for episode in range(num_episodes):
-        if random.random() > 0.7:
-            s = generator.generate_tricky_scenario()
+    for i in range(num_episodes):
+        episode = i 
+
+        if episode < 30000:
+            tricky = False
         else:
-            s = generator.generate_normal_scenario()
+            tricky = random.random() < 0.15
+
+        s = generator.get_random_scenario(tricky=tricky)
 
         obs = env_wrapper.load_scenario(s)
         done = False
         episode_reward = 0
         episode_losses = []
+
+        tricky_reward = 0.0
+        normal_reward = 0.0
 
         while not done:
             action = agent.choose_action(obs)
@@ -85,7 +99,6 @@ def train():
             buffer.push(obs, action, reward, next_obs, done)
 
             loss = agent.learn(buffer, batch_size=batch_size)
-            agent.update_target()
 
             if loss is not None:
                 episode_losses.append(float(loss))
@@ -93,8 +106,10 @@ def train():
             obs = next_obs
             episode_reward += reward
 
+        agent.update_target()
+
         # Decay exploration after each episode
-        exploration_episodes = 25000
+        exploration_episodes = 250000
         agent.epsilon = max(0.05, 1.0 - (episode / exploration_episodes))
 
         ep_loss = sum(episode_losses) / len(episode_losses) if episode_losses else 0.0
@@ -102,15 +117,21 @@ def train():
         recent_rewards.append(episode_reward)
         recent_losses.append(ep_loss)
 
+        if tricky:
+            tricky_reward = episode_reward
+        else:
+            normal_reward = episode_reward
+
         smoothed_reward = sum(recent_rewards) / len(recent_rewards)
         smoothed_loss = sum(recent_losses) / len(recent_losses)
 
         wandb.log(
             {
-                "train/raw_reward": episode_reward,
                 "train/smoothed_reward": smoothed_reward,
                 "train/avg_loss": smoothed_loss,
                 "train/epsilon": agent.epsilon,
+                "train/tricky_reward": tricky_reward,
+                "train/normal_reward": normal_reward,
                 "episode": episode,
             }
         )
@@ -125,7 +146,7 @@ def train():
         if episode > 0 and episode % eval_frequency == 0:
             print(f"--- Evaluating at Episode {episode} ---")
 
-            success_rate = evaluate_agent(agent, env_wrapper, eval_scenarios[:100])
+            success_rate = evaluate_agent(agent, env_wrapper, eval_scenarios[:150])
             print(f"Success Rate: {success_rate * 100:.2f}%")
 
             wandb.log({"eval/success_rate": success_rate, "episode": episode})
@@ -133,7 +154,7 @@ def train():
             if success_rate > eval_highscore:
                 eval_highscore = success_rate
                 print("⭐️ New High Score! Saving model...")
-                agent.save_model(filepath="best_micro_agent.msgpack")
+                agent.save_model(filepath="micro_agent/best_micro_agent.msgpack")
 
 
 if __name__ == "__main__":

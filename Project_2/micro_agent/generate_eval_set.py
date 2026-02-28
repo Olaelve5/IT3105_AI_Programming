@@ -26,10 +26,9 @@ def generate_eval_set(n, generator):
     scenarios = []
 
     for _ in range(n):
-        if random() < 0.5:
-            scenarios.append(generator.generate_normal_scenario())
-        else:
-            scenarios.append(generator.get_random_tricky_scenario())
+        tricky = random() < 0.15
+        scenario = generator.get_random_scenario(tricky=tricky)
+        scenarios.append(scenario)
 
     clean_scenarios = _to_jsonable(scenarios)
 
