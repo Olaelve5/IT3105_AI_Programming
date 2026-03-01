@@ -1,6 +1,7 @@
 from micro_agent.MicroAgent import MicroAgent
 from micro_agent.MicroEnvWrapper import MicroEnvWrapper
 from micro_agent.ReplayBuffer import ReplayBuffer
+from micro_agent.PrioritizedReplayBuffer import PrioritizedReplayBuffer
 from micro_agent.ScenarioGenerator import ScenarioGenerator
 import json
 import random
@@ -40,9 +41,9 @@ def train():
     env = TetrisEnv()
     env_wrapper = MicroEnvWrapper(env=env)
     agent = MicroAgent()
-    #agent.load_model("micro_agent/best_micro_agent.msgpack")
-    #agent.epsilon = 0.05
-    buffer = ReplayBuffer()
+    # agent.load_model("micro_agent/best_micro_agent.msgpack")
+    # agent.epsilon = 0.05
+    buffer = PrioritizedReplayBuffer(capacity=100000)
     generator = ScenarioGenerator()
     eval_scenarios = load_eval_set()
 
@@ -71,12 +72,9 @@ def train():
     recent_losses = deque(maxlen=50)
     print_frequency = 50
 
-    start_episode = 100000
-    additional_episodes = 100000
-
     # Main training loop
     for i in range(num_episodes):
-        episode = i 
+        episode = i
 
         if episode < 30000:
             tricky = False
@@ -98,7 +96,20 @@ def train():
             next_obs, reward, done = env_wrapper.step(action)
             buffer.push(obs, action, reward, next_obs, done)
 
-            loss = agent.learn(buffer, batch_size=batch_size)
+            if len(buffer) > batch_size:
+                beta = min(1.0, 0.4 + episode * (1.0 - 0.4) / num_episodes)
+
+                states, actions, rewards, next_states, dones, indices, weights = (
+                    buffer.sample(batch_size, beta)
+                )
+
+                loss, td_errors = agent.learn(
+                    states, actions, rewards, next_states, dones, weights
+                )
+
+                buffer.update_priorities(indices, td_errors)
+            else:
+                loss = None
 
             if loss is not None:
                 episode_losses.append(float(loss))

@@ -47,4 +47,4 @@ if __name__ == "__main__":
     with open("micro_agent/evaluation_set.json", "r", encoding="utf-8") as f:
         eval_scenarios = json.load(f)
 
-    watch_agent_play(agent, env_wrapper, eval_scenarios[200:300], num_games=20)
+    watch_agent_play(agent, env_wrapper, eval_scenarios[40:], num_games=20)

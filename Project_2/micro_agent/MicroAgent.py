@@ -78,14 +78,10 @@ class MicroAgent:
             self.online_params,
         )
 
-    def learn(self, replay_buffer, batch_size=64):
-        """Samples a batch from memory and updates the neural network."""
-        if len(replay_buffer) < batch_size:
-            return None
+    def learn(self, states, actions, rewards, next_states, dones, weights):
+        batch = (states, actions, rewards, next_states, dones, weights)
 
-        batch = replay_buffer.sample(batch_size)
-
-        self.online_params, self.opt_state, loss = train_step(
+        self.online_params, self.opt_state, loss, td_errors = train_step(
             self.network,
             self.optimizer,
             self.online_params,
@@ -95,7 +91,7 @@ class MicroAgent:
             self.gamma,
         )
 
-        return loss
+        return float(loss), np.array(td_errors)
 
     def save_model(
         self, filepath="micro_agent/saved_params/micro_agent_weights.msgpack"
@@ -122,7 +118,7 @@ class MicroAgent:
 def train_step(
     network, optimizer, online_params, target_params, opt_state, batch, discount
 ):
-    states, actions, rewards, next_states, dones = batch
+    states, actions, rewards, next_states, dones, weights = batch
 
     def loss_fn(params):
         # Ask the network for the value it gave its chosen action
@@ -142,12 +138,15 @@ def train_step(
         # Bellman target
         target_q = rewards + discount * next_q_val * (1.0 - dones)
 
-        loss = jnp.mean(optax.huber_loss(q_action, target_q, delta=1.0))
-        return loss
+        td_errors = jnp.abs(target_q - q_action)
+        elementwise_loss = optax.huber_loss(q_action, target_q, delta=1.0)
 
-    loss, grads = jax.value_and_grad(loss_fn)(online_params)
+        loss = jnp.mean(elementwise_loss * weights)
+        return loss, td_errors
+
+    (loss, td_errors), grads = jax.value_and_grad(loss_fn, has_aux=True)(online_params)
 
     updates, new_opt_state = optimizer.update(grads, opt_state, online_params)
     new_online_params = optax.apply_updates(online_params, updates)
 
-    return new_online_params, new_opt_state, loss
+    return new_online_params, new_opt_state, loss, td_errors
