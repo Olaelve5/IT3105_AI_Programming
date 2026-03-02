@@ -1,37 +1,54 @@
 import time
+import pygame
 import random
-from micro_agent.MicroAgent import MicroAgent
+import json
+from micro_agent.A_Star import A_Star
 from micro_agent.MicroEnvWrapper import MicroEnvWrapper
 from tetris.tetris_env import TetrisEnv
-import json
 
-
-import time
-import pygame  # Make sure this is imported!
-
-pygame.init()  
+pygame.init()
 
 
 def watch_agent_play(agent, env_wrapper, scenarios, num_games=5):
     for i in range(num_games):
         scenario = random.choice(scenarios)
-        obs = env_wrapper.load_scenario(scenario)
+        _ = env_wrapper.load_scenario(scenario)
 
         done = False
         print(f"\n▶️ Starting Game {i+1}...")
 
+        # Extract target state ONCE outside the loop and ensure they are integers
+        target_state = (
+            int(scenario["target_pos"][0]),
+            int(scenario["target_pos"][1]),
+            int(scenario["target_rot"]),
+        )
+
         while not done:
-            # 1. THE MAC OS FIX: Pump the Pygame events so the window actually draws
+            # 1. THE MAC OS FIX: Pump the Pygame events
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     pygame.quit()
-                    return  # Exit completely if you close the window
+                    return
 
-            # 2. Choose action and step
-            action = agent.choose_action(obs, evaluate=True)
-            obs, reward, done = env_wrapper.step(action)
+            # 2. Get current state of the piece
+            start_state = (
+                env_wrapper.env.active_piece.x,
+                env_wrapper.env.active_piece.y,
+                env_wrapper.env.active_piece.rotation,
+            )
 
-            # 3. Render and pause
+            # 3. Choose action using A*
+            action = agent.choose_action(start_state, target_state)
+
+            # 4. If A* returns None, we are at the target! Hard drop to lock it.
+            if action is None:
+                action = 4
+
+            # 5. Take the step
+            _, reward, done = env_wrapper.step(action)
+
+            # 6. Render and pause
             env_wrapper.render()
             time.sleep(0.05)
 
@@ -40,11 +57,16 @@ def watch_agent_play(agent, env_wrapper, scenarios, num_games=5):
 
 
 if __name__ == "__main__":
-    agent = MicroAgent()
-    agent.load_model("micro_agent/best_micro_agent.msgpack")
-    env_wrapper = MicroEnvWrapper(TetrisEnv())
+    # Initialize raw env
+    env = TetrisEnv(tick_speed=10)
+
+    # Initialize wrapper
+    env_wrapper = MicroEnvWrapper(env)
+
+    # CRITICAL FIX: Pass the RAW env to the A* agent, not the wrapper!
+    agent = A_Star(env)
 
     with open("micro_agent/evaluation_set.json", "r", encoding="utf-8") as f:
         eval_scenarios = json.load(f)
 
-    watch_agent_play(agent, env_wrapper, eval_scenarios[40:], num_games=20)
+    watch_agent_play(agent, env_wrapper, eval_scenarios, num_games=40)

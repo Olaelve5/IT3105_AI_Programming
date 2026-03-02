@@ -20,18 +20,20 @@ FIGURES = {
     "O": {"id": 7, "shape": [[1, 2, 5, 6]], "color": (255, 235, 0)},
 }
 
+FIGURES_BY_ID = {details["id"]: details for details in FIGURES.values()}
+
 
 class TetrisPiece:
-    def __init__(self, figure, coordinates):
+    def __init__(self, figure, coordinates, rotation=0):
         self.shapes = figure["shape"]
-        self.active_shape = self.shapes[0]
+        self.active_shape = self.shapes[rotation]
 
         self.id = figure["id"]
         self.color = figure["color"]
 
         self.x = coordinates[0]
         self.y = coordinates[1]
-        self.rotation = 0
+        self.rotation = rotation
 
     def move(self, diff_coordinates):
         self.x += diff_coordinates[0]

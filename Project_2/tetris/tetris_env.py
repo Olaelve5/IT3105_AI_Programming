@@ -1,7 +1,7 @@
 import os
 import numpy as np
 import pygame
-from tetris.tetris_shape import FIGURES, TetrisPiece
+from tetris.tetris_shape import FIGURES, FIGURES_BY_ID, TetrisPiece
 import random
 from config import BOARD_WIDTH, BOARD_HEIGHT, GRID_SIZE
 
@@ -195,12 +195,13 @@ class TetrisEnv:
 
         return 0.0
 
-    def get_drop_position(self):
+    def get_drop_position(self, piece=None):
         """Returns the y position where the piece would land if dropped."""
-        drop_y = self.active_piece.y
-        while not self.check_collision(
-            self.active_piece.active_shape, self.active_piece.x, drop_y + 1
-        ):
+        if piece is None:
+            piece = self.active_piece
+
+        drop_y = piece.y
+        while not self.check_collision(piece.active_shape, piece.x, drop_y + 1):
             drop_y += 1
         return drop_y
 
@@ -250,14 +251,21 @@ class TetrisEnv:
                     board_y = offset_y + i
                     board_x = offset_x + j
 
-                    # 1. Check out of bounds (Walls and Floor)
+                    # Board limits
                     if board_x < 0 or board_x >= self.width or board_y >= self.height:
                         return True
 
-                    # 2. Check placed blocks (Ignore if piece is still spawning above the board)
+                    # Locked pieces
                     if board_y >= 0 and self.board[board_y, board_x] > 0:
                         return True
         return False
+
+    def is_valid_state(self, state, piece_id):
+        figure = FIGURES_BY_ID[piece_id]
+        shape = figure["shape"][state[2]]
+        x = state[0]
+        y = state[1]
+        return not self.check_collision(shape, x, y)
 
     def freeze_shape(self, spawn_new=True):
         """
