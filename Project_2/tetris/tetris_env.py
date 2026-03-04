@@ -71,7 +71,7 @@ class TetrisEnv:
 
         self.next_piece = self.generate_new_piece()
 
-        # If the newly spawned piece immediately collides, the game is over
+        # If the new spawned piece immediately collides, the game is over
         if self.check_collision(
             self.active_piece.active_shape, self.active_piece.x, self.active_piece.y
         ):
@@ -138,7 +138,6 @@ class TetrisEnv:
         return drop_y
 
     def get_state(self):
-        """Returns a clean dictionary of the raw game state."""
         return {
             "board": self.board.copy(),
             "active_piece": self.active_piece,
