@@ -1,11 +1,9 @@
 import math
-
-import wandb
-
 from replay_buffer import Game, ReplayBuffer
 import numpy as np
 from mcts_node import MCTSNode
 from tetris.tetris_env import TetrisEnv
+from EnvWrapper import EnvWrapper
 from umcts import UMCTS
 import jax.numpy as jnp
 import jax
@@ -16,7 +14,7 @@ class GameManager:
     def __init__(self, model, params, mcts_num_simulations):
         self.replay_buffer = ReplayBuffer(capacity=5000)
         self.model = model
-        self.env = TetrisEnv()
+        self.env = EnvWrapper(TetrisEnv())
         self.params = params
         self.num_actions = NUM_ACTIONS
         self.mcts = UMCTS(model, params)
@@ -26,33 +24,35 @@ class GameManager:
             lambda p, s: self.model.apply(p, s, method=self.model.representation)
         )
 
-    def play_single_episode(self, max_episode_length, generation, active_pieces):
+    def play_single_episode(self, max_episode_length, generation):
         """
         Simulates one episode and stores it in the replay buffer.
         """
-
-        self.env.set_active_pieces(active_pieces)
-
         # Ensure MCTS has the latest parameters
         self.mcts.params = self.params
 
         total_entropy = 0.0
         steps_taken = 0
-        game_state, _ = self.env.reset()
+        game_state = self.env.reset()
         game = Game()
 
         done = False
 
         while not done and steps_taken < max_episode_length:
-
             # Initialize the root node of the MCTS
             root_node = MCTSNode(prior=1.0)
             state_jnp = jnp.array([game_state])
             abstract_state = self.representation_fn(self.params, state_jnp)
             root_node.game_state = abstract_state
 
+            legal_actions = self.env.get_legal_actions()
+
             # Run MCTS to populate the search tree and get action probabilities
-            self.mcts.run(root_node, num_simulations=self.mcts_num_simulations)
+            self.mcts.run(
+                root_node,
+                legal_actions=legal_actions,
+                num_simulations=self.mcts_num_simulations,
+            )
             policy_distribution, root_value = self.mcts.extract_mcts_data(
                 root_node, self.num_actions
             )
@@ -62,17 +62,14 @@ class GameManager:
             total_entropy += step_entropy
 
             # Sample action and step the environment
-            # Use a temperature parameter to control exploration vs exploitation
-            if steps_taken < 50:
-                # Temperature = 1.0 (Exploration)
+            if steps_taken < 20:
                 action = np.random.choice(self.num_actions, p=policy_distribution)
             else:
-                # Temperature = 0.0 (Exploitation/Greedy)
                 action = int(np.argmax(policy_distribution))
 
-            next_state, reward, terminated, truncated, _ = self.env.step(action)
+            obs, reward, terminated = self.env.step(action)
 
-            if terminated or truncated:
+            if terminated:
                 done = True
 
             # Store the step in the game history
@@ -86,15 +83,14 @@ class GameManager:
             )
 
             # Move to the next state
-            game_state = next_state
+            game_state = obs
             steps_taken += 1
 
         avg_entropy = total_entropy / steps_taken if steps_taken > 0 else 0
-        total_reward = sum(game.rewards)
 
         self.replay_buffer.save_game(game)
         print(
             f"Game finished in {steps_taken} steps with total reward {sum(game.rewards):.2f}"
         )
 
-        return sum(game.rewards), steps_taken, self.env.lines_cleared, avg_entropy
+        return sum(game.rewards), steps_taken, self.env.env.lines_cleared, avg_entropy

@@ -3,7 +3,7 @@ from valid_move_generator import generate_valid_moves
 from tetris.tetris_env import TetrisEnv
 
 
-class MacroEnvWrapper:
+class EnvWrapper:
     def __init__(self, env: TetrisEnv):
         self.env = env
         self.num_actions = 800

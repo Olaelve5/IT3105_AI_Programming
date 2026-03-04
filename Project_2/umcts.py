@@ -46,14 +46,14 @@ class UMCTS:
             lambda p, s: self.model.apply(p, s, method=self.model.prediction)
         )
 
-    def run(self, root_node: MCTSNode, num_simulations=50):
+    def run(self, root_node, legal_actions, num_simulations=50):
         """
         Runs the full algorithm.
         """
         min_max = MinMaxStats()
 
         for _ in range(num_simulations):
-            node: MCTSNode = root_node
+            node = root_node
             search_path = [node]
 
             while node.is_expanded():
@@ -85,13 +85,27 @@ class UMCTS:
             exp_logits = np.exp(logits - max_logit)
             action_probs = exp_logits / np.sum(exp_logits)
 
+            # Mask out illegal actions + add noise for exploration
             if len(search_path) == 1:
-                noise = np.random.dirichlet([0.3] * self.num_actions)
+                mask = np.zeros(self.num_actions, dtype=np.float32)
+                for a in legal_actions:
+                    mask[a] = 1.0
+                action_probs *= mask
+
+                # Normalize again
+                prob_sum = np.sum(action_probs)
+                if prob_sum > 0:
+                    action_probs /= prob_sum
+                else:
+                    action_probs = mask / np.sum(mask)
+
+                noise = np.zeros(self.num_actions, dtype=np.float32)
+                noise[legal_actions] = np.random.dirichlet([0.3] * len(legal_actions))
                 action_probs = 0.75 * action_probs + 0.25 * noise
 
             for i in range(self.num_actions):
-                child = MCTSNode(action_probs[i])
-                node.children[i] = child
+                if action_probs[i] > 0.001:
+                    node.children[i] = MCTSNode(action_probs[i])
 
             self.backpropagate(search_path, predicted_value, min_max)
 
