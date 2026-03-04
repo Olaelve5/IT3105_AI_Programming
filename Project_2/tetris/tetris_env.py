@@ -241,10 +241,13 @@ class TetrisEnv:
             new_shape, self.active_piece.x, self.active_piece.y
         )
 
-    def check_collision(self, shape, offset_x, offset_y):
+    def check_collision(self, shape, offset_x, offset_y, board=None):
         """
         Checks if a given shape at a specific x,y position hits walls or placed blocks.
         """
+        if board is None:
+            board = self.board
+
         for i in range(4):
             for j in range(4):
                 if i * 4 + j in shape:
@@ -256,11 +259,14 @@ class TetrisEnv:
                         return True
 
                     # Locked pieces
-                    if board_y >= 0 and self.board[board_y, board_x] > 0:
+                    if board_y >= 0 and board[board_y, board_x] > 0:
                         return True
         return False
 
-    def is_valid_state(self, state, piece_id):
+    def is_valid_state(self, state, piece_id, board=None):
+        if board is None:
+            board = self.board
+
         figure = FIGURES_BY_ID[piece_id]
         shape = figure["shape"][state[2]]
         x = state[0]
@@ -525,3 +531,4 @@ class TetrisEnv:
 
         self.done = False
         return self._get_observation(), {}
+
