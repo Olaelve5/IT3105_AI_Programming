@@ -27,9 +27,7 @@ class RepresentationNet(nn.Module):
 
     @nn.compact
     def __call__(self, x):
-        x = nn.Conv(
-            features=NUM_CHANNELS, kernel_size=(3, 3), padding="SAME"
-        )(x)
+        x = nn.Conv(features=NUM_CHANNELS, kernel_size=(3, 3), padding="SAME")(x)
         x = nn.relu(x)
 
         # Store the original game state as a residual
@@ -55,9 +53,12 @@ class DynamicsNet(nn.Module):
     def __call__(self, state, action):
         action_one_hot = jax.nn.one_hot(action, self.num_actions)
 
+        action_embedded = nn.Dense(16)(action_one_hot)
+        action_embedded = nn.relu(action_embedded)
+
         # Transform the action into a plane so it can be used in layers
         action_plane = jnp.tile(
-            action_one_hot[:, None, None, :], (1, state.shape[1], state.shape[2], 1)
+            action_embedded[:, None, None, :], (1, state.shape[1], state.shape[2], 1)
         )
 
         # Concatenate the state and action along the channel dimension
@@ -74,10 +75,11 @@ class DynamicsNet(nn.Module):
         hidden = nn.Dense(256)(flat_x)
         hidden = nn.relu(hidden)
 
-        reward = nn.Dense(1)(flat_x)
+        # Predict the reward
+        reward = nn.Dense(1)(reward)
 
         # Predict the discount (essentially whether the game is over)
-        discount_logits = nn.Dense(1)(flat_x)
+        discount_logits = nn.Dense(1)(hidden)
         discount = nn.sigmoid(discount_logits)
 
         return next_state, reward, discount
@@ -95,12 +97,16 @@ class PredictionNet(nn.Module):
     def __call__(self, state):
         flat = state.reshape((state.shape[0], -1))
 
-        hidden = nn.Dense(256)(flat)
+        hidden = nn.Dense(1024)(flat)
         hidden = nn.relu(hidden)
 
-        # Two heads for policy and value
+        # Head for policy scores
         raw_policy_scores = nn.Dense(self.num_actions)(hidden)
-        value = nn.Dense(1)(hidden)
+
+        # Head for values
+        value_hidden = nn.Dense(256)(flat)
+        value_hidden = nn.relu(value_hidden)
+        value = nn.Dense(1)(value_hidden)
 
         return raw_policy_scores, value
 
