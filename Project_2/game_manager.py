@@ -1,11 +1,9 @@
 import math
-
-import wandb
-
 from replay_buffer import Game, ReplayBuffer
 import numpy as np
 from mcts_node import MCTSNode
-from tetris.tetris_env import TetrisEnv
+from tron.tron_env import TronEnv
+from tron.env_wrapper import TronEnvWrapper
 from umcts import UMCTS
 import jax.numpy as jnp
 import jax
@@ -14,9 +12,9 @@ from config import NUM_ACTIONS
 
 class GameManager:
     def __init__(self, model, params, mcts_num_simulations):
-        self.replay_buffer = ReplayBuffer(capacity=5000)
+        self.replay_buffer = ReplayBuffer()
         self.model = model
-        self.env = TetrisEnv()
+        self.env = TronEnvWrapper(TronEnv())
         self.params = params
         self.num_actions = NUM_ACTIONS
         self.mcts = UMCTS(model, params)
@@ -26,19 +24,17 @@ class GameManager:
             lambda p, s: self.model.apply(p, s, method=self.model.representation)
         )
 
-    def play_single_episode(self, max_episode_length, generation, active_pieces):
+    def play_single_episode(self, max_episode_length, generation):
         """
         Simulates one episode and stores it in the replay buffer.
         """
-
-        self.env.set_active_pieces(active_pieces)
 
         # Ensure MCTS has the latest parameters
         self.mcts.params = self.params
 
         total_entropy = 0.0
         steps_taken = 0
-        game_state, _ = self.env.reset()
+        game_state = self.env.reset()
         game = Game()
 
         done = False
@@ -63,16 +59,14 @@ class GameManager:
 
             # Sample action and step the environment
             # Use a temperature parameter to control exploration vs exploitation
-            if steps_taken < 50:
-                # Temperature = 1.0 (Exploration)
+            if steps_taken < 10:
                 action = np.random.choice(self.num_actions, p=policy_distribution)
             else:
-                # Temperature = 0.0 (Exploitation/Greedy)
                 action = int(np.argmax(policy_distribution))
 
-            next_state, reward, terminated, truncated, _ = self.env.step(action)
+            next_state, reward, terminated = self.env.step(action)
 
-            if terminated or truncated:
+            if terminated:
                 done = True
 
             # Store the step in the game history
@@ -89,12 +83,14 @@ class GameManager:
             game_state = next_state
             steps_taken += 1
 
+        score = self.env.env.score
+        
         avg_entropy = total_entropy / steps_taken if steps_taken > 0 else 0
         total_reward = sum(game.rewards)
 
         self.replay_buffer.save_game(game)
         print(
-            f"Game finished in {steps_taken} steps with total reward {sum(game.rewards):.2f}"
+            f"Game finished in {steps_taken} steps with score {score} | total reward {total_reward:.2f}"
         )
 
-        return sum(game.rewards), steps_taken, self.env.lines_cleared, avg_entropy
+        return total_reward, steps_taken, score, avg_entropy

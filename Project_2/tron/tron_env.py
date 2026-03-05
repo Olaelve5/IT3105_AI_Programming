@@ -1,5 +1,7 @@
 import pygame
 import random
+import numpy as np
+from config import BOARD_WIDTH, BOARD_HEIGHT, NUM_ACTIONS, GRID_SIZE
 
 BACKGROUND_COLOR = (34, 45, 61)
 HEAD_COLOR = (255, 255, 255)
@@ -8,9 +10,10 @@ GRID_SIZE = 18
 
 
 class TronEnv:
-    def __init__(self, width=600, height=600):
+    def __init__(self, width=BOARD_WIDTH, height=BOARD_HEIGHT, grid_size=GRID_SIZE):
         self.width = width
         self.height = height
+        self.grid_size = grid_size
         self.screen = pygame.display.set_mode((self.width, self.height))
         self.clock = pygame.time.Clock()
 
@@ -28,8 +31,8 @@ class TronEnv:
         self.handle_actions(action)
 
         new_head_pos = (
-            self.head_pos[0] + self.direction[0] * GRID_SIZE,
-            self.head_pos[1] + self.direction[1] * GRID_SIZE,
+            self.head_pos[0] + self.direction[0] * self.grid_size,
+            self.head_pos[1] + self.direction[1] * self.grid_size,
         )
 
         if self.check_collision(new_head_pos):
@@ -63,8 +66,8 @@ class TronEnv:
             pass
 
     def get_random_start_position(self):
-        x = random.randint(0, self.width // GRID_SIZE - 1) * GRID_SIZE
-        y = random.randint(0, self.height // GRID_SIZE - 1) * GRID_SIZE
+        x = random.randint(0, self.width // self.grid_size - 1) * self.grid_size
+        y = random.randint(0, self.height // self.grid_size - 1) * self.grid_size
         return (x, y)
 
     def check_collision(self, pos):
@@ -79,13 +82,15 @@ class TronEnv:
 
         for pos in self.body_positions[:-1]:
             pygame.draw.rect(
-                self.screen, BODY_COLOR, (pos[0], pos[1], GRID_SIZE, GRID_SIZE)
+                self.screen,
+                BODY_COLOR,
+                (pos[0], pos[1], self.grid_size, self.grid_size),
             )
 
         pygame.draw.rect(
             self.screen,
             HEAD_COLOR,
-            (self.head_pos[0], self.head_pos[1], GRID_SIZE, GRID_SIZE),
+            (self.head_pos[0], self.head_pos[1], self.grid_size, self.grid_size),
         )
 
         pygame.display.flip()
