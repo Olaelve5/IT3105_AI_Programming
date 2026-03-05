@@ -35,7 +35,7 @@ class A_Star:
 
             visited.add(current_state)
 
-            for action in range(NUM_ACTIONS):
+            for action in range(5):
                 new_state = self.get_new_state(
                     action, current_state, self.env.active_piece.id, target_state
                 )

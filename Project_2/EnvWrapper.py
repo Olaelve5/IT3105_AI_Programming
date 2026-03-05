@@ -78,15 +78,15 @@ class EnvWrapper:
         # Force a "Down" action to trigger the lock and respawn
         _, lines_cleared, terminated, _, _ = self.env.step(0)
 
+        if lines_cleared > 0:
+            print(f"{"🔥" * lines_cleared} Cleared {lines_cleared}!")
+
         # Reward function
         if terminated:
-            # Massive punishment for dying!
             reward = -1.0
         elif lines_cleared > 0:
-            # Massive reward for doing the right thing!
             reward = float(lines_cleared**2)
         else:
-            # Tiny breadcrumb reward just for staying alive and placing a piece
             reward = 0.01
 
         return self._get_obs(), reward, terminated

@@ -10,14 +10,15 @@ from config import NUM_ACTIONS, BOARD_WIDTH, BOARD_HEIGHT
 import wandb
 
 rng = jax.random.PRNGKey(42)
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # ================ Hyperparameters ================
 NUM_GENERATIONS = 5000
 GAMES_PER_GENERATION = 32
-TRAINING_STEPS_PER_GENERATION = 100
+TRAINING_STEPS_PER_GENERATION = 150
 NUM_SIMULATIONS = 30
 LEARNING_RATE = 0.0001
-BATCH_SIZE = 64
+BATCH_SIZE = 96
 UNROLL_STEPS = 5
 SAVE_PARAMS = True
 
@@ -96,8 +97,9 @@ def main(save_params=SAVE_PARAMS):
 
         if (gen + 1) % 25 == 0:
             if save_params:
-                os.makedirs("Project_2/saved_params", exist_ok=True)
-                save_path = f"Project_2/saved_params/{gen + 1}_generations.msgpack"
+                save_dir = os.path.join(SCRIPT_DIR, "saved_params")
+                os.makedirs(save_dir, exist_ok=True)
+                save_path = os.path.join(save_dir, f"{gen + 1}_generations.msgpack")
                 with open(save_path, "wb") as f:
                     f.write(flax.serialization.to_bytes(params))
                 print(f"💾 Saved params after {gen + 1} generations -> {save_path}")
@@ -108,8 +110,9 @@ def main(save_params=SAVE_PARAMS):
         if avg_reward > best_avg_reward:
             best_avg_reward = avg_reward
             if save_params:
-                os.makedirs("Project_2/saved_params", exist_ok=True)
-                best_save_path = "Project_2/saved_params/best_model.msgpack"
+                save_dir = os.path.join(SCRIPT_DIR, "saved_params")
+                os.makedirs(save_dir, exist_ok=True)
+                best_save_path = os.path.join(save_dir, "best_model.msgpack")
                 with open(best_save_path, "wb") as f:
                     f.write(flax.serialization.to_bytes(params))
                 print(
