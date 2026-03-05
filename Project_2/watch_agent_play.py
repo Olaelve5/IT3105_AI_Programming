@@ -11,7 +11,7 @@ from umcts import UMCTS
 from mcts_node import MCTSNode
 
 # Import your Tron files
-from tron.tron_env import TronEnv
+from Project_2.tron.snake_env import TronEnv
 from tron.env_wrapper import TronEnvWrapper
 from config import NUM_ACTIONS, BOARD_WIDTH, BOARD_HEIGHT
 

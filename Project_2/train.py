@@ -26,6 +26,7 @@ def perform_training_steps(
     num_training_steps,
     batch_size,
     unroll_steps,
+    n_steps,
     game_manager,
 ):
     print(f"🏋️‍♀️ Training for {num_training_steps} steps...")
@@ -40,7 +41,11 @@ def perform_training_steps(
 
     # Training loop: sample data -> calculate loss -> update params
     for _ in range(num_training_steps):
-        batch = game_manager.replay_buffer.sample_batch(batch_size, unroll_steps)
+        batch = game_manager.replay_buffer.sample_batch(
+            batch_size,
+            unroll_steps,
+            n_steps,
+        )
 
         if batch is None:
             print("Buffer too small, skipping training step.")

@@ -2,8 +2,8 @@ import math
 from replay_buffer import Game, ReplayBuffer
 import numpy as np
 from mcts_node import MCTSNode
-from tron.tron_env import TronEnv
-from tron.env_wrapper import TronEnvWrapper
+from snake.snake_env import SnakeEnv
+from snake.env_wrapper import SnakeEnvWrapper
 from umcts import UMCTS
 import jax.numpy as jnp
 import jax
@@ -14,7 +14,7 @@ class GameManager:
     def __init__(self, model, params, mcts_num_simulations):
         self.replay_buffer = ReplayBuffer()
         self.model = model
-        self.env = TronEnvWrapper(TronEnv())
+        self.env = SnakeEnvWrapper(SnakeEnv())
         self.params = params
         self.num_actions = NUM_ACTIONS
         self.mcts = UMCTS(model, params)
@@ -83,14 +83,12 @@ class GameManager:
             game_state = next_state
             steps_taken += 1
 
-        score = self.env.env.score
-        
         avg_entropy = total_entropy / steps_taken if steps_taken > 0 else 0
         total_reward = sum(game.rewards)
 
         self.replay_buffer.save_game(game)
         print(
-            f"Game finished in {steps_taken} steps with score {score} | total reward {total_reward:.2f}"
+            f"Game finished in {steps_taken} steps with body length {self.env.env.body_length} | total reward {total_reward:.2f}"
         )
 
-        return total_reward, steps_taken, score, avg_entropy
+        return total_reward, steps_taken, self.env.env.body_length, avg_entropy

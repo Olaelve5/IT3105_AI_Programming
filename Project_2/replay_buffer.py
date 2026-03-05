@@ -58,7 +58,7 @@ class ReplayBuffer:
     def save_game(self, game: Game):
         self.buffer.append(game)
 
-    def sample_batch(self, batch_size, unroll_steps, num_actions=NUM_ACTIONS):
+    def sample_batch(self, batch_size, unroll_steps, n_steps, num_actions=NUM_ACTIONS):
         if not self.buffer:
             return None
 
@@ -93,7 +93,7 @@ class ReplayBuffer:
             batch_rewards.append(rewards)
 
             target_vals = [
-                game.compute_target_value(random_pos + t, n_steps=unroll_steps)
+                game.compute_target_value(random_pos + t, n_steps=n_steps)
                 for t in range(unroll_steps + 1)
             ]
             batch_values.append(target_vals)

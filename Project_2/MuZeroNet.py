@@ -6,6 +6,15 @@ from config import NUM_ACTIONS
 NUM_CHANNELS = 32
 
 
+def min_max_scale(x, tol=1e-5):
+    """
+    Scales the hidden state to a [0, 1] range across spatial and channel dimensions
+    """
+    max_val = jnp.max(x, axis=(1, 2, 3), keepdims=True)
+    min_val = jnp.min(x, axis=(1, 2, 3), keepdims=True)
+    return (x - min_val) / (max_val - min_val + tol)
+
+
 class ResBlock(nn.Module):
     features: int
 
@@ -24,7 +33,7 @@ class RepresentationNet(nn.Module):
         x = nn.Conv(features=NUM_CHANNELS, kernel_size=(3, 3), padding="SAME")(x)
         x = nn.relu(x)
         x = ResBlock(NUM_CHANNELS)(x)
-        return x
+        return min_max_scale(x)
 
 
 class DynamicsNet(nn.Module):
@@ -48,8 +57,10 @@ class DynamicsNet(nn.Module):
 
         next_state = ResBlock(NUM_CHANNELS)(x)
 
-        # Global average pooling instead of flatten — THIS is the key fix
-        pooled = jnp.mean(next_state, axis=(1, 2))  # (batch, 32) not (batch, 20000)
+        # Single normalization at the end — this is the important one
+        next_state = min_max_scale(next_state)
+
+        pooled = jnp.mean(next_state, axis=(1, 2))
 
         hidden = nn.Dense(64)(pooled)
         hidden = nn.relu(hidden)

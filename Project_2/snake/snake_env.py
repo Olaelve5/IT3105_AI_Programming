@@ -3,16 +3,20 @@ import random
 from config import BOARD_WIDTH, BOARD_HEIGHT, GRID_SIZE
 
 BACKGROUND_COLOR = (34, 45, 61)
-HEAD_COLOR = (255, 255, 255)
+HEAD_COLOR = (255, 0, 93)
 BODY_COLOR = (0, 247, 255)
+FRUIT_COLOR = (0, 255, 0)
 GRID_SIZE = 18
 
 
-class TronEnv:
+class SnakeEnv:
     def __init__(self, width=BOARD_WIDTH, height=BOARD_HEIGHT, grid_size=GRID_SIZE):
-        self.width = width * grid_size
-        self.height = height * grid_size
-        self.grid_size = grid_size
+        self.scale = 2
+        self.width = width * grid_size * self.scale
+        self.height = height * grid_size * self.scale
+        self.grid_size = grid_size * self.scale
+        self.max_body_length = (width * height) // (grid_size * grid_size) - 1
+
         self.screen = pygame.display.set_mode((self.width, self.height))
         self.clock = pygame.time.Clock()
 
@@ -22,8 +26,9 @@ class TronEnv:
         self.screen.fill(BACKGROUND_COLOR)
         self.head_pos = self.get_random_start_position()
         self.body_positions = [self.head_pos]
+        self.body_length = 0
         self.direction = (0, -1)
-        self.score = 0
+        self.fruit_pos = self.spawn_fruit()
         self.game_over = False
 
     def step(self, action):
@@ -37,12 +42,18 @@ class TronEnv:
         if self.check_collision(new_head_pos):
             self.game_over = True
 
+        if self.check_fruit_collision():
+            self.body_length += 1
+            self.fruit_pos = self.spawn_fruit()
+            ate_fruit = True
+        else:
+            ate_fruit = False
+
         self.head_pos = new_head_pos
         self.body_positions.append(self.head_pos)
+        self.update_body_positions()
 
-        self.score += 1
-
-        return self.head_pos, self.score, self.game_over
+        return self.head_pos, self.game_over, ate_fruit
 
     def handle_actions(self, action):
         """
@@ -76,8 +87,18 @@ class TronEnv:
             return True
         return False
 
+    def update_body_positions(self):
+        if len(self.body_positions) > self.body_length + 1:
+            self.body_positions.pop(0)
+
     def render(self):
         self.screen.fill(BACKGROUND_COLOR)
+
+        pygame.draw.rect(
+            self.screen,
+            FRUIT_COLOR,
+            (self.fruit_pos[0], self.fruit_pos[1], self.grid_size, self.grid_size),
+        )
 
         for pos in self.body_positions[:-1]:
             pygame.draw.rect(
@@ -95,10 +116,26 @@ class TronEnv:
         pygame.display.flip()
         self.clock.tick(10)
 
+    def spawn_fruit(self):
+        while True:
+            fruit_x = (
+                random.randint(0, self.width // self.grid_size - 1) * self.grid_size
+            )
+            fruit_y = (
+                random.randint(0, self.height // self.grid_size - 1) * self.grid_size
+            )
+            fruit_pos = (fruit_x, fruit_y)
+
+            if fruit_pos not in self.body_positions:
+                return fruit_pos
+
+    def check_fruit_collision(self):
+        return self.head_pos == self.fruit_pos
+
 
 if __name__ == "__main__":
     pygame.init()
-    env = TronEnv()
+    env = SnakeEnv()
 
     running = True
     while running:
