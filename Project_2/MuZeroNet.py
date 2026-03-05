@@ -3,12 +3,10 @@ import jax.numpy as jnp
 import flax.linen as nn
 from config import NUM_ACTIONS
 
-NUM_CHANNELS = 64
+NUM_CHANNELS = 32
 
 
 class ResBlock(nn.Module):
-    """A standard Residual Block to help the network think deeper and see further."""
-
     features: int
 
     @nn.compact
@@ -25,10 +23,7 @@ class RepresentationNet(nn.Module):
     def __call__(self, x):
         x = nn.Conv(features=NUM_CHANNELS, kernel_size=(3, 3), padding="SAME")(x)
         x = nn.relu(x)
-
         x = ResBlock(NUM_CHANNELS)(x)
-        x = ResBlock(NUM_CHANNELS)(x)
-
         return x
 
 
@@ -39,7 +34,7 @@ class DynamicsNet(nn.Module):
     def __call__(self, state, action):
         action_one_hot = jax.nn.one_hot(action, self.num_actions)
 
-        action_embedded = nn.Dense(16)(action_one_hot)
+        action_embedded = nn.Dense(8)(action_one_hot)
         action_embedded = nn.relu(action_embedded)
 
         action_plane = jnp.tile(
@@ -52,11 +47,11 @@ class DynamicsNet(nn.Module):
         x = nn.relu(x)
 
         next_state = ResBlock(NUM_CHANNELS)(x)
-        next_state = ResBlock(NUM_CHANNELS)(next_state)
 
-        flat_x = next_state.reshape((next_state.shape[0], -1))
+        # Global average pooling instead of flatten — THIS is the key fix
+        pooled = jnp.mean(next_state, axis=(1, 2))  # (batch, 32) not (batch, 20000)
 
-        hidden = nn.Dense(256)(flat_x)
+        hidden = nn.Dense(64)(pooled)
         hidden = nn.relu(hidden)
 
         reward = nn.Dense(1)(hidden)
@@ -67,21 +62,15 @@ class DynamicsNet(nn.Module):
 
 
 class PredictionNet(nn.Module):
-    """
-    The Prediction Network takes the abstract state and predicts both the
-    action probabilities and the value (expected reward).
-    """
-
     num_actions: int = NUM_ACTIONS
 
     @nn.compact
     def __call__(self, state):
-        flat = state.reshape((state.shape[0], -1))
+        pooled = jnp.mean(state, axis=(1, 2))
 
-        hidden = nn.Dense(256)(flat)
+        hidden = nn.Dense(64)(pooled)
         hidden = nn.relu(hidden)
 
-        # Two heads, one for policy and one for value
         raw_policy_scores = nn.Dense(self.num_actions)(hidden)
         value = nn.Dense(1)(hidden)
 
@@ -110,13 +99,11 @@ class MuZeroNet(nn.Module):
         self.recurrent_inference(state, action)
 
     def initial_inference(self, observation):
-        # Used once, at the root of the search tree, to get the initial state and predictions
         state = self.representation(observation)
         raw_policy_scores, value = self.prediction(state)
         return state, raw_policy_scores, value
 
     def recurrent_inference(self, state, action):
-        # Used when simulating future steps in the search tree
         next_state, reward, discount = self.dynamics(state, action)
         raw_policy_scores, value = self.prediction(next_state)
         return next_state, reward, discount, raw_policy_scores, value
