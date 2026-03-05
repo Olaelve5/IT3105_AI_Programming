@@ -141,7 +141,6 @@ def watch_game():
 
                         raw_env.step(micro_action)
                         raw_env.render()
-                        time.sleep(0.05)  # Smooth animation speed
 
                         for event in pygame.event.get():
                             if event.type == pygame.QUIT:

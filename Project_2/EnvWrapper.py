@@ -75,19 +75,30 @@ class EnvWrapper:
         else:
             self.env.active_piece.y = self.env.get_drop_position()
 
+        old_height, old_bumpiness, old_holes = self._get_board_metrics()
+
         # Force a "Down" action to trigger the lock and respawn
         _, lines_cleared, terminated, _, _ = self.env.step(0)
+
+        new_height, new_bumpiness, new_holes = self._get_board_metrics()
 
         if lines_cleared > 0:
             print(f"{"🔥" * lines_cleared} Cleared {lines_cleared}!")
 
         # Reward function
         if terminated:
-            reward = -1.0
-        elif lines_cleared > 0:
-            reward = float(lines_cleared**2)
+            reward = -5.0
         else:
-            reward = 0.01
+            reward = float(lines_cleared**2) * 10.0
+
+            # Penalties for making the board worse
+            hole_penalty = (new_holes - old_holes) * -0.2
+            bumpiness_penalty = (new_bumpiness - old_bumpiness) * -0.05
+            height_penalty = (new_height - old_height) * -0.005
+
+            reward += hole_penalty + bumpiness_penalty + height_penalty
+
+            reward += 0.1
 
         return self._get_obs(), reward, terminated
 
@@ -124,3 +135,32 @@ class EnvWrapper:
 
     def render(self):
         self.env.render(tick=False)
+
+    def _get_board_metrics(self):
+        """Calculates the current height, bumpiness, and holes dynamically."""
+        board = self.env.board
+        heights = []
+        holes = 0
+
+        # Dynamically grab the board dimensions so we don't crash!
+        # (Assuming grid is shaped [height][width] or [width][height], adjust if needed)
+        height = len(board)
+        width = len(board[0])
+
+        for x in range(width):
+            col_height = 0
+            block_found = False
+            for y in range(height):
+                if board[y][x] != 0:
+                    if not block_found:
+                        col_height = height - y
+                        block_found = True
+                elif block_found:
+                    holes += 1
+            heights.append(col_height)
+
+        # Bumpiness is the difference between adjacent columns, so we stop at width - 1
+        bumpiness = sum(abs(heights[i] - heights[i + 1]) for i in range(width - 1))
+        total_height = sum(heights)
+
+        return total_height, bumpiness, holes

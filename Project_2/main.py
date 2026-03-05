@@ -15,7 +15,7 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 # ================ Hyperparameters ================
 NUM_GENERATIONS = 5000
 GAMES_PER_GENERATION = 32
-TRAINING_STEPS_PER_GENERATION = 150
+TRAINING_STEPS_PER_GENERATION = 50
 NUM_SIMULATIONS = 30
 LEARNING_RATE = 0.0001
 BATCH_SIZE = 96
@@ -103,8 +103,6 @@ def main(save_params=SAVE_PARAMS):
                 with open(save_path, "wb") as f:
                     f.write(flax.serialization.to_bytes(params))
                 print(f"💾 Saved params after {gen + 1} generations -> {save_path}")
-
-        avg_reward = sum(r[0] for r in results) / len(results)
 
         # Save the best model based on average reward
         if avg_reward > best_avg_reward:
