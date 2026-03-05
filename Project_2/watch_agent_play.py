@@ -9,10 +9,14 @@ import pygame
 from MuZeroNet import MuZeroNet
 from umcts import UMCTS
 from mcts_node import MCTSNode
-from tetris.tetris_env import TetrisEnv
+
+# Import your Tron files
+from tron.tron_env import TronEnv
+from tron.env_wrapper import TronEnvWrapper
 from config import NUM_ACTIONS, BOARD_WIDTH, BOARD_HEIGHT
 
-PARAMS_FOLDER = "Project_2/saved_params"
+# Update this path to where your Tron params are saved
+PARAMS_FOLDER = "saved_params"
 
 
 def list_available_params():
@@ -49,6 +53,7 @@ def list_available_params():
 
 def load_params(model, filepath):
     rng = jax.random.PRNGKey(0)
+    # Tron uses 1 channel (1, H, W, 1)
     dummy_obs = jnp.ones((1, BOARD_HEIGHT, BOARD_WIDTH, 1))
     dummy_act = jnp.array([0])
     template = model.init(rng, dummy_obs, dummy_act, method=model.init_params)
@@ -62,30 +67,37 @@ def load_params(model, filepath):
 def watch_game():
     filepath = list_available_params()
 
-    model = MuZeroNet()
+    # Pass num_actions to the network
+    model = MuZeroNet(num_actions=NUM_ACTIONS)
     params = load_params(model, filepath)
 
-    env = TetrisEnv(tick_speed=10)
-    env.set_active_pieces(["O", "I", "L", "J", "S", "Z", "T"])
+    # Initialize Tron wrapper
+    env = TronEnvWrapper(TronEnv())
     mcts = UMCTS(model, params)
 
     representation_fn = jax.jit(
         lambda p, s: model.apply(p, s, method=model.representation)
     )
 
-    game_state, _ = env.reset()
+    # Wrapper reset returns only the observation matrix
+    game_state = env.reset()
     done = False
     step_count = 0
 
+    print("▶️ Watching Tron Agent...")
+
     while not done:
         step_count += 1
-        env.render()
+
+        # Render the underlying Tron game
+        env.env.render()
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
 
+        # Run MCTS
         state_jnp = jnp.array([game_state])
         abstract_state = representation_fn(params, state_jnp)
 
@@ -97,16 +109,18 @@ def watch_game():
         action = np.argmax(policy)
 
         print(f"Step {step_count} | Action: {action}")
-        game_state, _, terminated, truncated, _ = env.step(action)
 
-        if terminated or truncated:
-            env.reset()
+        # Wrapper returns (obs, reward, terminated)
+        game_state, _, terminated = env.step(action)
 
-        # done = terminated or truncated
+        if terminated:
+            print(f"💀 Game Over — survived {step_count} steps.")
+            # Reset the environment automatically
+            game_state = env.reset()
+            step_count = 0
+            time.sleep(1)
 
-    print(f"Game Over — survived {step_count} steps.")
-    time.sleep(2)
-    env.close()
+    pygame.quit()
 
 
 if __name__ == "__main__":

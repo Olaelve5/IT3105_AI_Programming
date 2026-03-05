@@ -1,4 +1,4 @@
-import MuZeroNet
+from MuZeroNet import MuZeroNet
 import jax.numpy as jnp
 import jax
 
@@ -32,7 +32,7 @@ def loss_function(params, model: MuZeroNet, batch):
     # Recurrent Steps
     for i in range(1, unroll_steps):
         action = batch["actions"][:, i - 1]
-        hidden_state = jax.lax.stop_gradient(hidden_state)
+        hidden_state = hidden_state * 0.5 + jax.lax.stop_gradient(hidden_state) * 0.5
 
         hidden_state, pred_reward, pred_discount, raw_policy_scores, pred_value = (
             model.apply(params, hidden_state, action, method=model.recurrent_inference)

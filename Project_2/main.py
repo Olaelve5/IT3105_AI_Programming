@@ -24,11 +24,11 @@ SAVE_PARAMS = True
 
 # ================ Run training loop ================
 def main(save_params=SAVE_PARAMS):
-    wandb.init(project="muzero-tetris")
+    wandb.init(project="muzero-tron")
 
     # Model initialization
     model = MuZeroNet(num_actions=NUM_ACTIONS)
-    dummy_obs = jnp.ones((1, BOARD_HEIGHT, BOARD_WIDTH, 2))
+    dummy_obs = jnp.ones((1, BOARD_HEIGHT, BOARD_WIDTH, 1))
     dummy_act = jnp.array([0])
     params = model.init(rng, dummy_obs, dummy_act, method=model.init_params)
 
@@ -43,10 +43,6 @@ def main(save_params=SAVE_PARAMS):
     print("\n========== 🚀 Starting Training ==========")
     print(f"Training for {NUM_GENERATIONS} generations...\n")
 
-    # # Set up curriculum learning phases
-    # current_phase = 1
-    # print("🎓 Curriculum Phase 1: The Basics (O and I blocks) \n")
-
     best_avg_reward = -float("inf")
 
     for gen in range(NUM_GENERATIONS):
@@ -56,12 +52,10 @@ def main(save_params=SAVE_PARAMS):
         results = []
 
         for _ in range(GAMES_PER_GENERATION):
-            active_pieces = ["O", "I", "L", "J", "S", "Z", "T"]
             try:
                 total_reward, steps, lines, entropy = game_manager.play_single_episode(
                     max_episode_length=500,
                     generation=gen,
-                    active_pieces=active_pieces,
                 )
                 results.append((total_reward, steps, lines, entropy))
             except Exception as e:
@@ -70,7 +64,7 @@ def main(save_params=SAVE_PARAMS):
         if results:
             avg_reward = sum(r[0] for r in results) / len(results)
             avg_steps = sum(r[1] for r in results) / len(results)
-            avg_lines = sum(r[2] for r in results) / len(results)
+            avg_score = sum(r[2] for r in results) / len(results)
             avg_entropy = sum(r[3] for r in results) / len(results)
             max_steps = max(r[1] for r in results)
             print(
@@ -80,7 +74,7 @@ def main(save_params=SAVE_PARAMS):
                 {
                     "Game/Average_Total_Reward": avg_reward,
                     "Game/Average_Episode_Length": avg_steps,
-                    "Game/Average_Lines_Cleared": avg_lines,
+                    "Game/Average_Score": avg_score,
                     "MCTS/Average_Entropy": avg_entropy,
                 },
                 step=gen,
@@ -108,7 +102,10 @@ def main(save_params=SAVE_PARAMS):
                     f.write(flax.serialization.to_bytes(params))
                 print(f"💾 Saved params after {gen + 1} generations -> {save_path}")
 
-        avg_reward = sum(r[0] for r in results) / len(results)
+        if results:
+            avg_reward = sum(r[0] for r in results) / len(results)
+        else:
+            avg_reward = -float("inf")
 
         # Save the best model based on average reward
         if avg_reward > best_avg_reward:
@@ -121,14 +118,6 @@ def main(save_params=SAVE_PARAMS):
                 print(
                     f"🏆 NEW HIGH SCORE! ({best_avg_reward:.2f}) Saved best brain -> {best_save_path}"
                 )
-
-        # if current_phase == 1 and avg_reward >= 10.0:
-        #     print(f"\n🌟 THRESHOLD MET! Leveling up to Phase 2 at Generation {gen}! 🌟")
-        #     current_phase = 2
-
-        # elif current_phase == 2 and avg_reward >= 10.0:
-        #     print(f"\n🌟 THRESHOLD MET! Leveling up to Phase 3 (All Pieces)! 🌟")
-        #     current_phase = 3
 
     print("\nTraining complete!")
 

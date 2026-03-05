@@ -1,7 +1,6 @@
 import pygame
 import random
-import numpy as np
-from config import BOARD_WIDTH, BOARD_HEIGHT, NUM_ACTIONS, GRID_SIZE
+from config import BOARD_WIDTH, BOARD_HEIGHT, GRID_SIZE
 
 BACKGROUND_COLOR = (34, 45, 61)
 HEAD_COLOR = (255, 255, 255)
@@ -11,8 +10,8 @@ GRID_SIZE = 18
 
 class TronEnv:
     def __init__(self, width=BOARD_WIDTH, height=BOARD_HEIGHT, grid_size=GRID_SIZE):
-        self.width = width
-        self.height = height
+        self.width = width * grid_size
+        self.height = height * grid_size
         self.grid_size = grid_size
         self.screen = pygame.display.set_mode((self.width, self.height))
         self.clock = pygame.time.Clock()
