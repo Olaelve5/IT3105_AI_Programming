@@ -69,8 +69,8 @@ class UMCTS:
                     )
 
                     node.game_state = state
-                    node.reward = float(np.asarray(reward)[0, 0])
-                    node.discount = float(np.asarray(discount)[0, 0])
+                    node.reward = reward.item()
+                    node.discount = discount.item()
 
                 search_path.append(node)
 
@@ -79,7 +79,7 @@ class UMCTS:
             )
 
             logits = np.asarray(action_probs_jax)[0]
-            predicted_value = float(np.asarray(predicted_value_jax)[0, 0])
+            predicted_value = predicted_value_jax.item()
 
             max_logit = np.max(logits)
             exp_logits = np.exp(logits - max_logit)
@@ -88,8 +88,7 @@ class UMCTS:
             # Mask out illegal actions + add noise for exploration
             if len(search_path) == 1:
                 mask = np.zeros(self.num_actions, dtype=np.float32)
-                for a in legal_actions:
-                    mask[a] = 1.0
+                mask[legal_actions] = 1.0
                 action_probs *= mask
 
                 # Normalize again
@@ -110,16 +109,24 @@ class UMCTS:
             self.backpropagate(search_path, predicted_value, min_max)
 
     def select_child(self, node, min_max):
-        """
-        Select the child action/node with the highest UCB score.
-        """
-
+        """Select the child action/node with the highest UCB score."""
         best_score = -float("inf")
         best_action = -1
         best_child = None
 
+        c1 = 1.25
+        c2 = 19652
+        parent_visits = node.visit_count
+        explo_rate = c1 + math.log((parent_visits + c2 + 1) / c2)
+        parent_sqrt = math.sqrt(parent_visits)
+
+        # Pre-calculate parent value for baseline
+        parent_value = min_max.normalize(node.value()) if parent_visits > 0 else 0.0
+
         for action, child in node.children.items():
-            score = self.ucb_score(node, child, min_max)
+            score = self.ucb_score(
+                child, min_max, explo_rate, parent_sqrt, parent_value
+            )
 
             if score > best_score:
                 best_score = score
@@ -128,36 +135,25 @@ class UMCTS:
 
         return best_action, best_child
 
-    def ucb_score(self, parent: MCTSNode, child: MCTSNode, min_max: MinMaxStats):
-        """
-        Computes the UCB score for a (parent, child) edge
-        """
+    def ucb_score(
+        self,
+        child: MCTSNode,
+        min_max: MinMaxStats,
+        explo_rate,
+        parent_sqrt,
+        parent_value,
+    ):
+        """Computes the UCB score for a child edge using pre-calculated parent stats."""
+        child_visits = child.visit_count
 
-        # Constants are taken from the MuZero paper
-        c1 = 1.25
-        c2 = 19652
+        # P(s, a) -> probability of choosing this action
+        prior_score = explo_rate * child.prior * parent_sqrt / (child_visits + 1)
 
-        parent_visit_count = parent.visit_count
-        child_visit_count = child.visit_count
-
-        explo_rate = c1 + math.log((parent_visit_count + c2 + 1) / c2)
-
-        # P(s, a) -> probability of choosing this action from the parent node
-        prior_score = (
-            explo_rate
-            * child.prior
-            * math.sqrt(parent_visit_count)
-            / (child_visit_count + 1)
-        )
-
-        # Q(s, a) -> the value of this child node (average reward)
-        if child_visit_count > 0:
+        # Q(s, a) -> the value of this child node
+        if child_visits > 0:
             value_score = min_max.normalize(child.value())
         else:
-            # Use the parent's value as a baseline estimate for unexplored nodes
-            value_score = (
-                min_max.normalize(parent.value()) if parent.visit_count > 0 else 0.0
-            )
+            value_score = parent_value
 
         return prior_score + value_score
 

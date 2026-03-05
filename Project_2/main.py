@@ -14,10 +14,10 @@ rng = jax.random.PRNGKey(42)
 # ================ Hyperparameters ================
 NUM_GENERATIONS = 5000
 GAMES_PER_GENERATION = 32
-TRAINING_STEPS_PER_GENERATION = 200
-NUM_SIMULATIONS = 50
+TRAINING_STEPS_PER_GENERATION = 100
+NUM_SIMULATIONS = 30
 LEARNING_RATE = 0.0001
-BATCH_SIZE = 96
+BATCH_SIZE = 64
 UNROLL_STEPS = 5
 SAVE_PARAMS = True
 
@@ -28,7 +28,7 @@ def main(save_params=SAVE_PARAMS):
 
     # Model initialization
     model = MuZeroNet(num_actions=NUM_ACTIONS)
-    dummy_obs = jnp.ones((1, BOARD_HEIGHT, BOARD_WIDTH, 2))
+    dummy_obs = jnp.ones((1, BOARD_HEIGHT, BOARD_WIDTH, 3))
     dummy_act = jnp.array([0])
     params = model.init(rng, dummy_obs, dummy_act, method=model.init_params)
 
@@ -43,10 +43,6 @@ def main(save_params=SAVE_PARAMS):
     print("\n========== 🚀 Starting Training ==========")
     print(f"Training for {NUM_GENERATIONS} generations...\n")
 
-    # # Set up curriculum learning phases
-    # current_phase = 1
-    # print("🎓 Curriculum Phase 1: The Basics (O and I blocks) \n")
-
     best_avg_reward = -float("inf")
 
     for gen in range(NUM_GENERATIONS):
@@ -56,12 +52,10 @@ def main(save_params=SAVE_PARAMS):
         results = []
 
         for _ in range(GAMES_PER_GENERATION):
-            active_pieces = ["O", "I", "L", "J", "S", "Z", "T"]
             try:
                 total_reward, steps, lines, entropy = game_manager.play_single_episode(
                     max_episode_length=500,
                     generation=gen,
-                    active_pieces=active_pieces,
                 )
                 results.append((total_reward, steps, lines, entropy))
             except Exception as e:
@@ -121,14 +115,6 @@ def main(save_params=SAVE_PARAMS):
                 print(
                     f"🏆 NEW HIGH SCORE! ({best_avg_reward:.2f}) Saved best brain -> {best_save_path}"
                 )
-
-        # if current_phase == 1 and avg_reward >= 10.0:
-        #     print(f"\n🌟 THRESHOLD MET! Leveling up to Phase 2 at Generation {gen}! 🌟")
-        #     current_phase = 2
-
-        # elif current_phase == 2 and avg_reward >= 10.0:
-        #     print(f"\n🌟 THRESHOLD MET! Leveling up to Phase 3 (All Pieces)! 🌟")
-        #     current_phase = 3
 
     print("\nTraining complete!")
 

@@ -1,6 +1,7 @@
 import random
 import numpy as np
 import collections
+from config import NUM_ACTIONS
 
 
 class Game:
@@ -57,7 +58,7 @@ class ReplayBuffer:
     def save_game(self, game: Game):
         self.buffer.append(game)
 
-    def sample_batch(self, batch_size, unroll_steps, num_actions=5):
+    def sample_batch(self, batch_size, unroll_steps, num_actions=NUM_ACTIONS):
         if not self.buffer:
             return None
 

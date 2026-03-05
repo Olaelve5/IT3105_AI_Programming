@@ -1,5 +1,6 @@
 from tetris.tetris_shape import FIGURES_BY_ID
 from tetris.tetris_env import TetrisEnv
+from collections import deque
 
 
 def generate_valid_moves(starting_state, piece_id, env: TetrisEnv):
@@ -13,11 +14,11 @@ def generate_valid_moves(starting_state, piece_id, env: TetrisEnv):
     visited = set()
 
     # Initialize the queue with our spawn point
-    queue = [starting_state]
+    queue = deque([starting_state])
     visited.add(starting_state)
 
     while len(queue) > 0:
-        current_state = queue.pop(0)
+        current_state = queue.pop()
 
         # Add current state as a valid resting spot if it collides when being pushed one block down
         current_rot = current_state[2]

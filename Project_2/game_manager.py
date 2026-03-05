@@ -62,7 +62,7 @@ class GameManager:
             total_entropy += step_entropy
 
             # Sample action and step the environment
-            if steps_taken < 20:
+            if steps_taken < 5:
                 action = np.random.choice(self.num_actions, p=policy_distribution)
             else:
                 action = int(np.argmax(policy_distribution))

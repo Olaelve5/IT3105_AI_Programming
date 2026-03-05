@@ -76,7 +76,7 @@ class DynamicsNet(nn.Module):
         hidden = nn.relu(hidden)
 
         # Predict the reward
-        reward = nn.Dense(1)(reward)
+        reward = nn.Dense(1)(hidden)
 
         # Predict the discount (essentially whether the game is over)
         discount_logits = nn.Dense(1)(hidden)
@@ -97,7 +97,7 @@ class PredictionNet(nn.Module):
     def __call__(self, state):
         flat = state.reshape((state.shape[0], -1))
 
-        hidden = nn.Dense(1024)(flat)
+        hidden = nn.Dense(512)(flat)
         hidden = nn.relu(hidden)
 
         # Head for policy scores

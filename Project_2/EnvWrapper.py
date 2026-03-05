@@ -1,55 +1,93 @@
 import numpy as np
 from valid_move_generator import generate_valid_moves
 from tetris.tetris_env import TetrisEnv
+from tetris.tetris_shape import FIGURES_BY_ID
+from config import NUM_ACTIONS
 
 
 class EnvWrapper:
     def __init__(self, env: TetrisEnv):
         self.env = env
-        self.num_actions = 800
+        self.num_actions = NUM_ACTIONS
 
     def reset(self):
         """Resets the base environment and returns the initial observation."""
         self.env.reset()
         return self._get_obs()
 
-    def get_legal_actions(self):
-        """Returns a list of valid action IDs (0-799) using the BFS generator."""
-        piece = self.env.active_piece
-        current_state = (piece.x, piece.y, piece.rotation)
-
-        valid_actions = generate_valid_moves(current_state)
-        move_ids = []
-
-        for a in valid_actions:
-            id = self.encode_action(a[0], a[1], a[2])
-            move_ids.append(id)
-
-        return id
-
-    def encode_action(self, x, y, rot):
-        """Maps (x, y, rot) to a single integer 0-799."""
-        return (y * 10 + x) * 4 + rot
+    def encode_action(self, x, rot):
+        """Maps (x, rot) to a single integer 0-47."""
+        shifted_x = x + 2  # Absorb the -2 bounding box overhang
+        return shifted_x * 4 + rot
 
     def decode_action(self, action_id):
-        """Maps a single integer 0-799 back to (x, y, rot)."""
+        """Maps a single integer 0-47 back to (x, rot)."""
         rot = action_id % 4
-        x = (action_id // 4) % 10
-        y = action_id // 40
-        return int(x), int(y), int(rot)
+        shifted_x = action_id // 4
+        return shifted_x - 2, rot
+
+    def get_legal_actions(self):
+        """
+        Runs BFS, but filters it to only return the lowest possible resting
+        point (highest y) for each (x, rot) combination.
+        """
+        start_state = (
+            self.env.active_piece.x,
+            self.env.active_piece.y,
+            self.env.active_piece.rotation,
+        )
+
+        valid_states = generate_valid_moves(
+            start_state, self.env.active_piece.id, self.env
+        )
+
+        # Dictionary to store the lowest y for each (x, rot)
+        self.best_y_for_action = {}
+        legal_actions = []
+
+        for x, y, rot in valid_states:
+            action_id = self.encode_action(x, rot)
+
+            # If we haven't seen this action, or this 'y' is lower (higher value), update it!
+            if (
+                action_id not in self.best_y_for_action
+                or y > self.best_y_for_action[action_id]
+            ):
+                self.best_y_for_action[action_id] = y
+
+        # Return just the unique action IDs (0 to 47)
+        return list(self.best_y_for_action.keys())
 
     def step(self, action_id):
-        """Teleports the piece to the chosen action, locks it, and returns the result."""
+        """Teleports the piece to the chosen column, drops it, and locks it."""
+        x, rot = self.decode_action(action_id)
 
-        action = self.decode_action(action_id)
-        self.env.active_piece.x = action[0]
-        self.env.active_piece.y = action[1]
-        self.env.active_piece.rotation = action[2]
+        # Look up the resting y-coordinate we calculated during get_legal_actions!
+        # (Fallback to get_drop_position just in case the AI picks an illegal move during exploration)
+        y = self.best_y_for_action.get(action_id, None)
 
-        # Force a locking of piece by moving it down
+        self.env.active_piece.x = x
+        self.env.active_piece.rotation = rot
+        self.env.active_piece.active_shape = self.env.active_piece.shapes[rot]
+
+        if y is not None:
+            self.env.active_piece.y = y
+        else:
+            self.env.active_piece.y = self.env.get_drop_position()
+
+        # Force a "Down" action to trigger the lock and respawn
         _, lines_cleared, terminated, _, _ = self.env.step(0)
 
-        reward = lines_cleared**2
+        # Reward function
+        if terminated:
+            # Massive punishment for dying!
+            reward = -1.0
+        elif lines_cleared > 0:
+            # Massive reward for doing the right thing!
+            reward = float(lines_cleared**2)
+        else:
+            # Tiny breadcrumb reward just for staying alive and placing a piece
+            reward = 0.01
 
         return self._get_obs(), reward, terminated
 
