@@ -13,11 +13,11 @@ rng = jax.random.PRNGKey(42)
 
 # ================ Hyperparameters ================
 NUM_GENERATIONS = 5000
-GAMES_PER_GENERATION = 32
-TRAINING_STEPS_PER_GENERATION = 50
+GAMES_PER_GENERATION = 40
+TRAINING_STEPS_PER_GENERATION = 150
 NUM_SIMULATIONS = 50
 LEARNING_RATE = 0.0003
-BATCH_SIZE = 32
+BATCH_SIZE = 64
 UNROLL_STEPS = 5
 SAVE_PARAMS = True
 TD_STEPS = 30
@@ -29,7 +29,7 @@ def main(save_params=SAVE_PARAMS):
 
     # Model initialization
     model = MuZeroNet(num_actions=NUM_ACTIONS)
-    dummy_obs = jnp.ones((1, BOARD_HEIGHT, BOARD_WIDTH, 1))
+    dummy_obs = jnp.ones((1, BOARD_HEIGHT, BOARD_WIDTH, 3))
     dummy_act = jnp.array([0])
     params = model.init(rng, dummy_obs, dummy_act, method=model.init_params)
 

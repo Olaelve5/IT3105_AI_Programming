@@ -6,9 +6,9 @@ import wandb
 
 
 @partial(jax.jit, static_argnums=(0, 2))
-def train_step(model, params, optimizer, opt_state, batch, unroll_steps=5):
+def train_step(model, params, optimizer, opt_state, batch):
     grad_fn = jax.value_and_grad(loss_function, has_aux=True)
-    (loss_value, metrics), grads = grad_fn(params, model, batch, unroll_steps)
+    (loss_value, metrics), grads = grad_fn(params, model, batch)
 
     updates, new_opt_state = optimizer.update(grads, opt_state, params)
     new_params = optax.apply_updates(params, updates)
@@ -48,7 +48,7 @@ def perform_training_steps(
             break
 
         params, opt_state, metrics = train_step(
-            model, params, optimizer, opt_state, batch, unroll_steps
+            model, params, optimizer, opt_state, batch
         )
 
         for key in accumulated_metrics.keys():

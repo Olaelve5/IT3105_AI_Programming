@@ -3,7 +3,7 @@ import jax.numpy as jnp
 import jax
 
 
-def loss_function(params, model: MuZeroNet, batch, unroll_steps=5):
+def loss_function(params, model: MuZeroNet, batch):
     obs = batch["observations"]
 
     # Initial Step
@@ -26,6 +26,8 @@ def loss_function(params, model: MuZeroNet, batch, unroll_steps=5):
     total_value_loss = value_loss
     total_reward_loss = 0.0
     total_discount_loss = 0.0
+
+    unroll_steps = batch["target_policies"].shape[1]
 
     # Recurrent Steps
     for i in range(1, unroll_steps):
