@@ -3,7 +3,7 @@ import jax.numpy as jnp
 import jax
 
 
-def loss_function(params, model: MuZeroNet, batch):
+def loss_function(params, model: MuZeroNet, batch, unroll_steps=5):
     obs = batch["observations"]
 
     # Initial Step
@@ -27,8 +27,6 @@ def loss_function(params, model: MuZeroNet, batch):
     total_reward_loss = 0.0
     total_discount_loss = 0.0
 
-    unroll_steps = batch["target_policies"].shape[1]
-
     # Recurrent Steps
     for i in range(1, unroll_steps):
         action = batch["actions"][:, i - 1]
@@ -50,15 +48,19 @@ def loss_function(params, model: MuZeroNet, batch):
         action_probs = jax.nn.log_softmax(raw_policy_scores, axis=-1)
         step_policy_loss = -jnp.sum(target_policy * action_probs, axis=-1).mean()
         step_value_loss = jnp.mean((pred_value.squeeze(-1) - target_value) ** 2)
+        step_total_loss = (
+            reward_loss + discount_loss + step_policy_loss + step_value_loss
+        )
+        masked_loss = step_total_loss * target_discount
 
         # Accumulate
-        total_reward_loss += reward_loss
-        total_discount_loss += discount_loss
-        total_policy_loss += step_policy_loss
-        total_value_loss += step_value_loss
-        total_loss += reward_loss + discount_loss + step_policy_loss + step_value_loss
+        total_loss += jnp.sum(masked_loss)
+        total_reward_loss += jnp.sum(reward_loss * target_discount)
+        total_discount_loss += jnp.sum(discount_loss * target_discount)
+        total_policy_loss += jnp.sum(step_policy_loss * target_discount)
+        total_value_loss += jnp.sum(step_value_loss * target_discount)
 
-    scale = unroll_steps - 1
+    scale = batch["observations"].shape[0] * (unroll_steps + 1)
 
     # Create the dictionary of auxiliary metrics
     metrics = {

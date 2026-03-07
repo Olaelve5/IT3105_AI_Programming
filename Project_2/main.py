@@ -20,6 +20,7 @@ LEARNING_RATE = 0.0003
 BATCH_SIZE = 32
 UNROLL_STEPS = 5
 SAVE_PARAMS = True
+TD_STEPS = 30
 
 
 # ================ Run training loop ================
@@ -54,8 +55,7 @@ def main(save_params=SAVE_PARAMS):
         for _ in range(GAMES_PER_GENERATION):
             try:
                 total_reward, steps, lines, entropy = game_manager.play_single_episode(
-                    max_episode_length=500,
-                    generation=gen,
+                    max_episode_length=400,
                 )
                 results.append((total_reward, steps, lines, entropy))
             except Exception as e:
@@ -89,6 +89,7 @@ def main(save_params=SAVE_PARAMS):
             TRAINING_STEPS_PER_GENERATION,
             BATCH_SIZE,
             UNROLL_STEPS,
+            TD_STEPS,
             game_manager,
         )
 

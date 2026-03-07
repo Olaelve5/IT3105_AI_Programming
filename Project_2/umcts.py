@@ -6,6 +6,7 @@ import jax
 import numpy as np
 from mcts_node import MCTSNode
 from config import NUM_ACTIONS
+from functools import partial
 
 
 class MinMaxStats:
@@ -23,6 +24,16 @@ class MinMaxStats:
         return 0.0
 
 
+@partial(jax.jit, static_argnums=(1,))
+def recurrent_inference_fn(params, model, state, action):
+    return model.apply(params, state, action, method=model.recurrent_inference)
+
+
+@partial(jax.jit, static_argnums=(1,))
+def prediction_inference_fn(params, model, state):
+    return model.apply(params, state, method=model.prediction)
+
+
 class UMCTS:
     """
     The UMCTS class implements the Monte Carlo Tree Search algorithm.
@@ -35,22 +46,36 @@ class UMCTS:
         self.num_actions = NUM_ACTIONS
         self.discount_factor = discount_factor
 
-        # JIT compile the model's recurrent and prediction functions for speed
-        # This is a lot faster than calling apply with method=model.recurrent_inference every time
-        self.recurrent_fn = jax.jit(
-            lambda p, s, a: self.model.apply(
-                p, s, a, method=self.model.recurrent_inference
-            )
+    def expand_root(self, root_node: MCTSNode):
+        """Expands root and applies noise for exploration."""
+        action_probs_jax, predicted_value_jax = prediction_inference_fn(
+            self.params, self.model, root_node.game_state
         )
-        self.prediction_fn = jax.jit(
-            lambda p, s: self.model.apply(p, s, method=self.model.prediction)
-        )
+
+        logits = np.asarray(action_probs_jax)[0]
+        predicted_value = predicted_value_jax.item()
+
+        max_logit = np.max(logits)
+        exp_logits = np.exp(logits - max_logit)
+        action_probs = exp_logits / np.sum(exp_logits)
+
+        noise = np.random.dirichlet([0.3] * self.num_actions)
+        action_probs = 0.75 * action_probs + 0.25 * noise
+
+        for i in range(self.num_actions):
+            root_node.children[i] = MCTSNode(action_probs[i])
+
+        return predicted_value
 
     def run(self, root_node: MCTSNode, num_simulations=50):
         """
         Runs the full algorithm.
         """
         min_max = MinMaxStats()
+
+        if not root_node.is_expanded():
+            root_value = self.expand_root(root_node)
+            min_max.update(root_value)
 
         for _ in range(num_simulations):
             node: MCTSNode = root_node
@@ -64,8 +89,8 @@ class UMCTS:
 
                     action_arr = np.array([action], dtype=np.int32)
 
-                    state, reward, discount, _, _ = self.recurrent_fn(
-                        self.params, parent_state, action_arr
+                    state, reward, discount, _, _ = recurrent_inference_fn(
+                        self.params, self.model, parent_state, action_arr
                     )
 
                     node.game_state = state
@@ -74,8 +99,8 @@ class UMCTS:
 
                 search_path.append(node)
 
-            action_probs_jax, predicted_value_jax = self.prediction_fn(
-                self.params, node.game_state
+            action_probs_jax, predicted_value_jax = prediction_inference_fn(
+                self.params, self.model, node.game_state
             )
 
             logits = np.asarray(action_probs_jax)[0]
@@ -84,10 +109,6 @@ class UMCTS:
             max_logit = np.max(logits)
             exp_logits = np.exp(logits - max_logit)
             action_probs = exp_logits / np.sum(exp_logits)
-
-            if len(search_path) == 1:
-                noise = np.random.dirichlet([0.3] * self.num_actions)
-                action_probs = 0.75 * action_probs + 0.25 * noise
 
             for i in range(self.num_actions):
                 child = MCTSNode(action_probs[i])
@@ -158,25 +179,6 @@ class UMCTS:
 
             # Update stats so we can normalize the values
             min_max.update(node.value())
-
-    def rollout(self, node: MCTSNode):
-        """
-        Picks a random action, evaluates the predicted game state from this action
-        and returns the value.
-        """
-
-        action = jnp.array([random.randint(0, self.num_actions - 1)])
-
-        # Generate next state and evaluate it
-        _, reward, discount, value_next = self.recurrent_fn(
-            self.params, node.game_state, action
-        )
-
-        reward = reward.item()
-        value_next = value_next.item()
-        discount = discount.item()
-
-        return reward + (discount * value_next)
 
     def extract_mcts_data(self, root_node, num_actions):
         root_value = root_node.value()

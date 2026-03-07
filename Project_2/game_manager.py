@@ -1,4 +1,5 @@
 import math
+from functools import partial
 from replay_buffer import Game, ReplayBuffer
 import numpy as np
 from mcts_node import MCTSNode
@@ -8,6 +9,11 @@ from umcts import UMCTS
 import jax.numpy as jnp
 import jax
 from config import NUM_ACTIONS
+
+
+@partial(jax.jit, static_argnums=(1,))
+def representation_inference_fn(params, model, state):
+    return model.apply(params, state, method=model.representation)
 
 
 class GameManager:
@@ -20,11 +26,7 @@ class GameManager:
         self.mcts = UMCTS(model, params)
         self.mcts_num_simulations = mcts_num_simulations
 
-        self.representation_fn = jax.jit(
-            lambda p, s: self.model.apply(p, s, method=self.model.representation)
-        )
-
-    def play_single_episode(self, max_episode_length, generation):
+    def play_single_episode(self, max_episode_length):
         """
         Simulates one episode and stores it in the replay buffer.
         """
@@ -44,7 +46,9 @@ class GameManager:
             # Initialize the root node of the MCTS
             root_node = MCTSNode(prior=1.0)
             state_jnp = jnp.array([game_state])
-            abstract_state = self.representation_fn(self.params, state_jnp)
+            abstract_state = representation_inference_fn(
+                self.params, self.model, state_jnp
+            )
             root_node.game_state = abstract_state
 
             # Run MCTS to populate the search tree and get action probabilities
@@ -59,7 +63,7 @@ class GameManager:
 
             # Sample action and step the environment
             # Use a temperature parameter to control exploration vs exploitation
-            if steps_taken < 10:
+            if steps_taken < 25:
                 action = np.random.choice(self.num_actions, p=policy_distribution)
             else:
                 action = int(np.argmax(policy_distribution))
@@ -74,7 +78,6 @@ class GameManager:
                 state=game_state,
                 action=action,
                 reward=reward,
-                discount=0.0 if done else 0.99,
                 child_visits=policy_distribution,
                 root_value=root_value,
             )
@@ -84,7 +87,7 @@ class GameManager:
             steps_taken += 1
 
         score = self.env.env.score
-        
+
         avg_entropy = total_entropy / steps_taken if steps_taken > 0 else 0
         total_reward = sum(game.rewards)
 
