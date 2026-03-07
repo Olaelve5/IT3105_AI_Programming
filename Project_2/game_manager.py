@@ -59,7 +59,7 @@ class GameManager:
 
             # Sample action and step the environment
             # Use a temperature parameter to control exploration vs exploitation
-            if steps_taken < 10:
+            if steps_taken < 50:
                 action = np.random.choice(self.num_actions, p=policy_distribution)
             else:
                 action = int(np.argmax(policy_distribution))

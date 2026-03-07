@@ -15,7 +15,7 @@ class SnakeEnv:
         self.width = width * grid_size * self.scale
         self.height = height * grid_size * self.scale
         self.grid_size = grid_size * self.scale
-        self.max_body_length = (width * height) // (grid_size * grid_size) - 1
+        self.max_body_length = (width * height) - 1
 
         self.screen = pygame.display.set_mode((self.width, self.height))
         self.clock = pygame.time.Clock()
@@ -24,7 +24,7 @@ class SnakeEnv:
 
     def reset(self):
         self.screen.fill(BACKGROUND_COLOR)
-        self.head_pos = self.get_random_start_position()
+        self.head_pos = self.width // 2, self.height // 2
         self.body_positions = [self.head_pos]
         self.body_length = 0
         self.direction = (0, -1)
@@ -75,11 +75,6 @@ class SnakeEnv:
         elif action == 2:
             pass
 
-    def get_random_start_position(self):
-        x = random.randint(0, self.width // self.grid_size - 1) * self.grid_size
-        y = random.randint(0, self.height // self.grid_size - 1) * self.grid_size
-        return (x, y)
-
     def check_collision(self, pos):
         if pos in self.body_positions:
             return True
@@ -114,20 +109,27 @@ class SnakeEnv:
         )
 
         pygame.display.flip()
-        self.clock.tick(10)
+        self.clock.tick(5)
 
     def spawn_fruit(self):
-        while True:
-            fruit_x = (
-                random.randint(0, self.width // self.grid_size - 1) * self.grid_size
-            )
-            fruit_y = (
-                random.randint(0, self.height // self.grid_size - 1) * self.grid_size
-            )
-            fruit_pos = (fruit_x, fruit_y)
+        grid_w = self.width // self.grid_size
+        grid_h = self.height // self.grid_size
 
-            if fruit_pos not in self.body_positions:
-                return fruit_pos
+        occupied = set(self.body_positions)
+        if hasattr(self, "head_pos"):
+            occupied.add(self.head_pos)
+
+        empty_positions = []
+        for x in range(grid_w):
+            for y in range(grid_h):
+                pos = (x * self.grid_size, y * self.grid_size)
+                if pos not in occupied:
+                    empty_positions.append(pos)
+
+        if not empty_positions:
+            return None
+
+        return random.choice(empty_positions)
 
     def check_fruit_collision(self):
         return self.head_pos == self.fruit_pos

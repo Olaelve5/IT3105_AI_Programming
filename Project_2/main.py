@@ -16,19 +16,18 @@ rng = jax.random.PRNGKey(42)
 
 # ================ Hyperparameters ================
 NUM_GENERATIONS = 5000
-GAMES_PER_GENERATION = 32
-TRAINING_STEPS_PER_GENERATION = 75
+GAMES_PER_GENERATION = 8
+TRAINING_STEPS_PER_GENERATION = 100
 
 # MCTS Settings (Self-Play)
 NUM_SIMULATIONS = 50
 
-
 # Replay Buffer & Target Settings
-N_STEPS = 30
+N_STEPS = 5
 
 # Training & Network Settings
 LEARNING_RATE = 0.0001
-BATCH_SIZE = 64
+BATCH_SIZE = 48
 UNROLL_STEPS = 5
 SAVE_PARAMS = True
 
@@ -62,10 +61,17 @@ def main(save_params=SAVE_PARAMS):
 
         results = []
 
+        if gen < 50:
+            max_episode_length = 150
+        elif gen < 200:
+            max_episode_length = 300
+        else:            
+            max_episode_length = 750
+
         for _ in range(GAMES_PER_GENERATION):
             try:
                 total_reward, steps, lines, entropy = game_manager.play_single_episode(
-                    max_episode_length=500,
+                    max_episode_length=max_episode_length,
                     generation=gen,
                 )
                 results.append((total_reward, steps, lines, entropy))

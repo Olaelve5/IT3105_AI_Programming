@@ -3,15 +3,14 @@ import jax.numpy as jnp
 import flax.linen as nn
 from config import NUM_ACTIONS
 
-NUM_CHANNELS = 32
+# Increased channel capacity
+NUM_CHANNELS = 64
+NUM_RES_BLOCKS = 3
 
 
 def min_max_scale(x, tol=1e-5):
-    """
-    Scales the hidden state to a [0, 1] range across spatial and channel dimensions
-    """
-    max_val = jnp.max(x, axis=(1, 2, 3), keepdims=True)
-    min_val = jnp.min(x, axis=(1, 2, 3), keepdims=True)
+    max_val = jnp.max(x, axis=(1, 2), keepdims=True)
+    min_val = jnp.min(x, axis=(1, 2), keepdims=True)
     return (x - min_val) / (max_val - min_val + tol)
 
 
@@ -22,8 +21,10 @@ class ResBlock(nn.Module):
     def __call__(self, x):
         residual = x
         x = nn.Conv(features=self.features, kernel_size=(3, 3), padding="SAME")(x)
+        x = nn.LayerNorm()(x)  # CRUCIAL for unrolled stability
         x = nn.relu(x)
         x = nn.Conv(features=self.features, kernel_size=(3, 3), padding="SAME")(x)
+        x = nn.LayerNorm()(x)  # CRUCIAL
         return nn.relu(x + residual)
 
 
@@ -31,8 +32,13 @@ class RepresentationNet(nn.Module):
     @nn.compact
     def __call__(self, x):
         x = nn.Conv(features=NUM_CHANNELS, kernel_size=(3, 3), padding="SAME")(x)
+        x = nn.LayerNorm()(x)
         x = nn.relu(x)
-        x = ResBlock(NUM_CHANNELS)(x)
+
+        # Stack multiple ResBlocks for a wider receptive field
+        for _ in range(NUM_RES_BLOCKS):
+            x = ResBlock(NUM_CHANNELS)(x)
+
         return min_max_scale(x)
 
 
@@ -42,7 +48,6 @@ class DynamicsNet(nn.Module):
     @nn.compact
     def __call__(self, state, action):
         action_one_hot = jax.nn.one_hot(action, self.num_actions)
-
         action_embedded = nn.Dense(8)(action_one_hot)
         action_embedded = nn.relu(action_embedded)
 
@@ -51,23 +56,37 @@ class DynamicsNet(nn.Module):
         )
 
         x = jnp.concatenate([state, action_plane], axis=-1)
-
         x = nn.Conv(features=NUM_CHANNELS, kernel_size=(3, 3), padding="SAME")(x)
+        x = nn.LayerNorm()(x)
         x = nn.relu(x)
 
-        next_state = ResBlock(NUM_CHANNELS)(x)
+        # Stack multiple ResBlocks to understand complex game dynamics
+        for _ in range(NUM_RES_BLOCKS):
+            x = ResBlock(NUM_CHANNELS)(x)
 
-        # Single normalization at the end — this is the important one
-        next_state = min_max_scale(next_state)
+        next_state = min_max_scale(x)
 
-        pooled = jnp.mean(next_state, axis=(1, 2))
+        # --- THE CHANGES START HERE ---
 
-        hidden = nn.Dense(64)(pooled)
+        # 1. Compress the 64 channels down to 4 using a 1x1 convolution
+        # This preserves spatial info but drastically reduces the parameter count before flattening
+        flat_state = nn.Conv(features=4, kernel_size=(1, 1))(next_state)
+        flat_state = nn.LayerNorm()(flat_state)
+        flat_state = nn.relu(flat_state)
+
+        # 2. Flatten the spatial dimensions: (Batch, Height, Width, Channels) -> (Batch, H * W * C)
+        flat_state = flat_state.reshape((flat_state.shape[0], -1))
+
+        # 3. Pass the flattened spatial data to the dense layers
+        hidden = nn.Dense(128)(flat_state)
         hidden = nn.relu(hidden)
 
-        reward = nn.Dense(1)(hidden)
-        discount_logits = nn.Dense(1)(hidden)
+        # 4. Zero-initialize the final layers to prevent wild gradients at the start of training
+        reward = nn.Dense(1, kernel_init=nn.initializers.zeros)(hidden)
+        discount_logits = nn.Dense(1, kernel_init=nn.initializers.zeros)(hidden)
         discount = nn.sigmoid(discount_logits)
+
+        # --- THE CHANGES END HERE ---
 
         return next_state, reward, discount
 
@@ -77,9 +96,16 @@ class PredictionNet(nn.Module):
 
     @nn.compact
     def __call__(self, state):
-        pooled = jnp.mean(state, axis=(1, 2))
+        # 1. Compress the 64 channels down to 2 or 4 to save parameters
+        x = nn.Conv(features=4, kernel_size=(1, 1))(state)
+        x = nn.LayerNorm()(x)
+        x = nn.relu(x)
 
-        hidden = nn.Dense(64)(pooled)
+        # 2. Flatten the spatial dimensions
+        flat = x.reshape((x.shape[0], -1))
+
+        # 3. Pass to dense layers
+        hidden = nn.Dense(128)(flat)
         hidden = nn.relu(hidden)
 
         raw_policy_scores = nn.Dense(self.num_actions)(hidden)

@@ -75,7 +75,7 @@ class UMCTS:
                 search_path.append(node)
 
             action_probs_jax, predicted_value_jax = prediction_inference_fn(
-                self.params, self.model, root_node.game_state
+                self.params, self.model, node.game_state
             )
 
             logits = np.asarray(action_probs_jax)[0]

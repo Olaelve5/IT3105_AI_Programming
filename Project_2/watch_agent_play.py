@@ -11,8 +11,8 @@ from umcts import UMCTS
 from mcts_node import MCTSNode
 
 # Import your Tron files
-from Project_2.tron.snake_env import TronEnv
-from tron.env_wrapper import TronEnvWrapper
+from snake.snake_env import SnakeEnv
+from snake.env_wrapper import SnakeEnvWrapper
 from config import NUM_ACTIONS, BOARD_WIDTH, BOARD_HEIGHT
 
 # Update this path to where your Tron params are saved
@@ -71,8 +71,8 @@ def watch_game():
     model = MuZeroNet(num_actions=NUM_ACTIONS)
     params = load_params(model, filepath)
 
-    # Initialize Tron wrapper
-    env = TronEnvWrapper(TronEnv())
+    # Initialize Snake wrapper
+    env = SnakeEnvWrapper(SnakeEnv())
     mcts = UMCTS(model, params)
 
     representation_fn = jax.jit(
@@ -84,12 +84,12 @@ def watch_game():
     done = False
     step_count = 0
 
-    print("▶️ Watching Tron Agent...")
+    print("▶️ Watching Snake Agent...")
 
     while not done:
         step_count += 1
 
-        # Render the underlying Tron game
+        # Render the underlying Snake game
         env.env.render()
 
         for event in pygame.event.get():

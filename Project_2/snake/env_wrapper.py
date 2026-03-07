@@ -18,7 +18,7 @@ class SnakeEnvWrapper:
         if terminated:
             reward = -1.0
         else:
-            reward = 1.0 if ate_fruit else -0.01
+            reward = 10.0 if ate_fruit else -0.01
 
         if self.env.body_length == self.env.max_body_length:
             reward += 10.0
