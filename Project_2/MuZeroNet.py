@@ -4,7 +4,7 @@ import flax.linen as nn
 from config import NUM_ACTIONS
 
 NUM_CHANNELS = 64
-NUM_RES_BLOCKS = 5
+NUM_RES_BLOCKS = 3
 
 
 def min_max_scale(x, tol=1e-5):
