@@ -1,4 +1,3 @@
-import math
 import pygame
 import random
 from config import BOARD_WIDTH, BOARD_HEIGHT, GRID_SIZE
@@ -7,7 +6,6 @@ BACKGROUND_COLOR = (34, 45, 61)
 HEAD_COLOR = (255, 255, 255)
 BODY_COLOR = (0, 247, 255)
 WALL_COLOR = (255, 255, 255)
-GRID_SIZE = 18
 
 
 class TronEnv:
@@ -91,13 +89,11 @@ class TronEnv:
         self.clock.tick(10)
 
     def draw_header(self, padding_top):
-        header_color = (62, 98, 125)
+        header_color = (255, 255, 255)
         pygame.draw.rect(self.screen, header_color, (0, 0, self.width, padding_top))
 
         font = pygame.font.SysFont("monospace", 24, bold=True)
-        score_text = font.render(
-            f"Length: {len(self.body_positions)}", True, (255, 255, 255)
-        )
+        score_text = font.render(f"Length: {len(self.body_positions)}", True, (0, 0, 0))
         text_rect = score_text.get_rect(center=(self.width // 2, padding_top // 2))
         self.screen.blit(score_text, text_rect)
 
@@ -144,7 +140,9 @@ class TronEnv:
                 1,
             )
 
-    def place_random_walls(self, num_walls, min_size=4, max_size=10):
+    def place_random_walls(self, num_walls):
+        min_size = 4
+        max_size = self.width // self.grid_size // 3
         safe_zone = set()
         hx, hy = self.head_pos
 

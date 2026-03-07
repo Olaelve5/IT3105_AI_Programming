@@ -3,7 +3,14 @@ import jax.numpy as jnp
 import flax.linen as nn
 from config import NUM_ACTIONS
 
-NUM_CHANNELS = 32
+NUM_CHANNELS = 64
+NUM_RES_BLOCKS = 5
+
+
+def min_max_scale(x, tol=1e-5):
+    max_val = jnp.max(x, axis=(1, 2, 3), keepdims=True)
+    min_val = jnp.min(x, axis=(1, 2, 3), keepdims=True)
+    return (x - min_val) / (max_val - min_val + tol)
 
 
 class ResBlock(nn.Module):
@@ -13,8 +20,10 @@ class ResBlock(nn.Module):
     def __call__(self, x):
         residual = x
         x = nn.Conv(features=self.features, kernel_size=(3, 3), padding="SAME")(x)
+        x = nn.LayerNorm()(x)
         x = nn.relu(x)
         x = nn.Conv(features=self.features, kernel_size=(3, 3), padding="SAME")(x)
+        x = nn.LayerNorm()(x)
         return nn.relu(x + residual)
 
 
@@ -22,9 +31,13 @@ class RepresentationNet(nn.Module):
     @nn.compact
     def __call__(self, x):
         x = nn.Conv(features=NUM_CHANNELS, kernel_size=(3, 3), padding="SAME")(x)
+        x = nn.LayerNorm()(x)
         x = nn.relu(x)
-        x = ResBlock(NUM_CHANNELS)(x)
-        return x
+
+        for _ in range(NUM_RES_BLOCKS):
+            x = ResBlock(NUM_CHANNELS)(x)
+
+        return min_max_scale(x)
 
 
 class DynamicsNet(nn.Module):
@@ -44,14 +57,16 @@ class DynamicsNet(nn.Module):
         x = jnp.concatenate([state, action_plane], axis=-1)
 
         x = nn.Conv(features=NUM_CHANNELS, kernel_size=(3, 3), padding="SAME")(x)
+        x = nn.LayerNorm()(x)
         x = nn.relu(x)
 
-        next_state = ResBlock(NUM_CHANNELS)(x)
+        for _ in range(NUM_RES_BLOCKS):
+            x = ResBlock(NUM_CHANNELS)(x)
 
-        # Global average pooling instead of flatten — THIS is the key fix
-        pooled = jnp.mean(next_state, axis=(1, 2))  # (batch, 32) not (batch, 20000)
+        next_state = min_max_scale(x)
+        pooled = jnp.mean(next_state, axis=(1, 2))
 
-        hidden = nn.Dense(64)(pooled)
+        hidden = nn.Dense(128)(pooled)
         hidden = nn.relu(hidden)
 
         reward = nn.Dense(1)(hidden)
@@ -68,7 +83,7 @@ class PredictionNet(nn.Module):
     def __call__(self, state):
         pooled = jnp.mean(state, axis=(1, 2))
 
-        hidden = nn.Dense(64)(pooled)
+        hidden = nn.Dense(128)(pooled)
         hidden = nn.relu(hidden)
 
         raw_policy_scores = nn.Dense(self.num_actions)(hidden)
