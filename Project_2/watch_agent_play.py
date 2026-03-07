@@ -53,8 +53,7 @@ def list_available_params():
 
 def load_params(model, filepath):
     rng = jax.random.PRNGKey(0)
-    # Tron uses 1 channel (1, H, W, 1)
-    dummy_obs = jnp.ones((1, BOARD_HEIGHT, BOARD_WIDTH, 1))
+    dummy_obs = jnp.ones((1, BOARD_HEIGHT, BOARD_WIDTH, 3))
     dummy_act = jnp.array([0])
     template = model.init(rng, dummy_obs, dummy_act, method=model.init_params)
 
@@ -115,7 +114,6 @@ def watch_game():
 
         if terminated:
             print(f"💀 Game Over — survived {step_count} steps.")
-            # Reset the environment automatically
             game_state = env.reset()
             step_count = 0
             time.sleep(1)

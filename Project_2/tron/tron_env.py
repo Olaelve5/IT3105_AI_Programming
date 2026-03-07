@@ -3,7 +3,7 @@ import random
 from config import BOARD_WIDTH, BOARD_HEIGHT, GRID_SIZE
 
 BACKGROUND_COLOR = (34, 45, 61)
-HEAD_COLOR = (255, 255, 255)
+HEAD_COLOR = (252, 186, 3)
 BODY_COLOR = (0, 247, 255)
 WALL_COLOR = (255, 255, 255)
 
@@ -74,6 +74,9 @@ class TronEnv:
         return False
 
     def render(self):
+        if not pygame.get_init():
+            pygame.init()
+
         padding_top = 40
         total_height = self.height + padding_top
 
@@ -86,7 +89,7 @@ class TronEnv:
         self.draw_board(padding_top)
 
         pygame.display.flip()
-        self.clock.tick(10)
+        self.clock.tick(20)
 
     def draw_header(self, padding_top):
         header_color = (255, 255, 255)

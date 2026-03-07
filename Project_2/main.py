@@ -1,3 +1,6 @@
+import os
+os.environ["SDL_VIDEODRIVER"] = "dummy"
+
 from game_manager import GameManager
 from MuZeroNet import MuZeroNet
 import jax
@@ -97,8 +100,8 @@ def main(save_params=SAVE_PARAMS):
 
         if (gen + 1) % 25 == 0:
             if save_params:
-                os.makedirs("Project_2/saved_params", exist_ok=True)
-                save_path = f"Project_2/saved_params/{gen + 1}_generations.msgpack"
+                os.makedirs("saved_params", exist_ok=True)
+                save_path = f"saved_params/{gen + 1}_generations.msgpack"
                 with open(save_path, "wb") as f:
                     f.write(flax.serialization.to_bytes(params))
                 print(f"💾 Saved params after {gen + 1} generations -> {save_path}")
@@ -112,8 +115,8 @@ def main(save_params=SAVE_PARAMS):
         if avg_reward > best_avg_reward:
             best_avg_reward = avg_reward
             if save_params:
-                os.makedirs("Project_2/saved_params", exist_ok=True)
-                best_save_path = "Project_2/saved_params/best_model.msgpack"
+                os.makedirs("saved_params", exist_ok=True)
+                best_save_path = "saved_params/best_model.msgpack"
                 with open(best_save_path, "wb") as f:
                     f.write(flax.serialization.to_bytes(params))
                 print(
