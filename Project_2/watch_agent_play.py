@@ -53,7 +53,7 @@ def list_available_params():
 
 def load_params(model, filepath):
     rng = jax.random.PRNGKey(0)
-    dummy_obs = jnp.ones((1, BOARD_HEIGHT, BOARD_WIDTH, 3))
+    dummy_obs = jnp.ones((1, BOARD_HEIGHT, BOARD_WIDTH, 5))
     dummy_act = jnp.array([0])
     template = model.init(rng, dummy_obs, dummy_act, method=model.init_params)
 

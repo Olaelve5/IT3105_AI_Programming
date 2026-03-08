@@ -42,9 +42,14 @@ class Game:
 class ReplayBuffer:
     def __init__(self, capacity=3000):
         self.buffer = collections.deque(maxlen=capacity)
+        self.total_steps = 0
 
     def save_game(self, game: Game):
+        if len(self.buffer) == self.buffer.maxlen:
+            self.total_steps -= len(self.buffer[0])
+            
         self.buffer.append(game)
+        self.total_steps += len(game)
 
     def sample_batch(
         self, batch_size, td_steps=30, unroll_steps=5, num_actions=NUM_ACTIONS

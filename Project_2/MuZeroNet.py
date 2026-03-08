@@ -3,8 +3,14 @@ import jax.numpy as jnp
 import flax.linen as nn
 from config import NUM_ACTIONS
 
-NUM_CHANNELS = 48
-NUM_RES_BLOCKS = 2
+NUM_CHANNELS = 32
+NUM_RES_BLOCKS = 3
+
+
+def min_max_scale(x, tol=1e-5):
+    max_val = jnp.max(x, axis=(1, 2, 3), keepdims=True)
+    min_val = jnp.min(x, axis=(1, 2, 3), keepdims=True)
+    return (x - min_val) / (max_val - min_val + tol)
 
 
 class ResBlock(nn.Module):
@@ -31,7 +37,7 @@ class RepresentationNet(nn.Module):
         for _ in range(NUM_RES_BLOCKS):
             x = ResBlock(NUM_CHANNELS)(x)
 
-        return x
+        return min_max_scale(x)
 
 
 class DynamicsNet(nn.Module):
@@ -57,10 +63,10 @@ class DynamicsNet(nn.Module):
         for _ in range(NUM_RES_BLOCKS):
             x = ResBlock(NUM_CHANNELS)(x)
 
-        next_state = x
+        next_state = min_max_scale(x)
         batch_size = next_state.shape[0]
 
-        rd_conv = nn.Conv(features=2, kernel_size=(1, 1))(next_state)
+        rd_conv = nn.Conv(features=4, kernel_size=(1, 1))(next_state)
         rd_conv = nn.relu(rd_conv)
         rd_flat = rd_conv.reshape((batch_size, -1))
 
@@ -82,17 +88,16 @@ class PredictionNet(nn.Module):
         batch_size = state.shape[0]
 
         # --- POLICY HEAD ---
-        # Crush 48 channels down to 2 channels
-        p_conv = nn.Conv(features=2, kernel_size=(1, 1))(state)
+        p_conv = nn.Conv(features=8, kernel_size=(1, 1))(state)
         p_conv = nn.relu(p_conv)
         p_flat = p_conv.reshape((batch_size, -1))
 
-        # Policy doesn't even need a hidden dense layer now, just map straight to actions
-        raw_policy_scores = nn.Dense(self.num_actions)(p_flat)
+        p_hidden = nn.Dense(128)(p_flat)
+        p_hidden = nn.relu(p_hidden)
+        raw_policy_scores = nn.Dense(self.num_actions)(p_hidden)
 
         # --- VALUE HEAD ---
-        # Crush 48 channels down to 1 channel
-        v_conv = nn.Conv(features=1, kernel_size=(1, 1))(state)
+        v_conv = nn.Conv(features=4, kernel_size=(1, 1))(state)
         v_conv = nn.relu(v_conv)
         v_flat = v_conv.reshape((batch_size, -1))
 
