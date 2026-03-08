@@ -26,6 +26,8 @@ class GameManager:
         self.mcts = UMCTS(model, params)
         self.mcts_num_simulations = mcts_num_simulations
 
+        self.decay_rate = 0.98
+
     def play_single_episode(self, max_episode_length):
         """
         Simulates one episode and stores it in the replay buffer.
@@ -42,7 +44,6 @@ class GameManager:
         done = False
 
         while not done and steps_taken < max_episode_length:
-
             # Initialize the root node of the MCTS
             root_node = MCTSNode(prior=1.0)
             state_jnp = jnp.array([game_state])
@@ -61,12 +62,11 @@ class GameManager:
             step_entropy = -sum(p * math.log(p + 1e-8) for p in policy_distribution)
             total_entropy += step_entropy
 
-            # Sample action and step the environment
-            # Use a temperature parameter to control exploration vs exploitation
-            if steps_taken < 25:
-                action = np.random.choice(self.num_actions, p=policy_distribution)
-            else:
-                action = int(np.argmax(policy_distribution))
+            # Exploration decays over time
+            exploration_rate = max(0.05, 1.0 * (self.decay_rate**steps_taken))
+            adjusted_probs = np.power(policy_distribution, 1.0 / exploration_rate)
+            adjusted_probs /= np.sum(adjusted_probs)
+            action = np.random.choice(self.num_actions, p=adjusted_probs)
 
             next_state, reward, terminated = self.env.step(action)
 

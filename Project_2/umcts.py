@@ -75,6 +75,8 @@ class UMCTS:
 
         if not root_node.is_expanded():
             root_value = self.expand_root(root_node)
+            root_node.value_sum = root_value
+            root_node.visit_count = 1
             min_max.update(root_value)
 
         for _ in range(num_simulations):

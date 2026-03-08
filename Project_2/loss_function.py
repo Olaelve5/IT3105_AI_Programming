@@ -3,15 +3,11 @@ import jax.numpy as jnp
 import jax
 
 
-def normalize_value(x):
-    return jnp.sign(x) * (jnp.sqrt(jnp.abs(x) + 1) - 1) + 0.001 * x
-
-
 def loss_function(params, model: MuZeroNet, batch):
     obs = batch["observations"]
 
     # Initial Step
-    hidden_state, raw_policy_scores, predicted_value = model.apply(
+    hidden_state, raw_policy_scores, pred_value = model.apply(
         params, obs, method=model.initial_inference
     )
 
@@ -22,9 +18,7 @@ def loss_function(params, model: MuZeroNet, batch):
 
     # Calculate initial losses using SUM (not mean)
     policy_loss = -jnp.sum(target_policy * action_probs, axis=-1)
-    value_loss = (
-        normalize_value(predicted_value.squeeze(-1)) - normalize_value(target_value)
-    ) ** 2
+    value_loss = (pred_value.squeeze(-1) - target_value) ** 2
 
     # Initialize accumulators using SUMS
     total_loss = jnp.sum(policy_loss + value_loss)
@@ -55,14 +49,10 @@ def loss_function(params, model: MuZeroNet, batch):
 
         action_probs = jax.nn.log_softmax(raw_policy_scores, axis=-1)
         step_policy_loss = -jnp.sum(target_policy * action_probs, axis=-1)
-        step_value_loss = (
-            normalize_value(pred_value.squeeze(-1)) - normalize_value(target_value)
-        ) ** 2
+        step_value_loss = (pred_value.squeeze(-1) - target_value) ** 2
 
-        step_total_loss = (
-            reward_loss + discount_loss + step_policy_loss + step_value_loss
-        )
-        masked_loss = step_total_loss * target_discount
+        future_loss = discount_loss + step_policy_loss + step_value_loss
+        masked_loss = reward_loss + (future_loss * target_discount)
 
         # Accumulate sums
         total_loss += jnp.sum(masked_loss)

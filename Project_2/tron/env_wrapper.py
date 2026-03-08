@@ -15,7 +15,7 @@ class TronEnvWrapper:
         if terminated:
             reward = -1.0
         else:
-            reward = 0.1
+            reward = 0.01
 
         return self.get_obs(), reward, terminated
 
