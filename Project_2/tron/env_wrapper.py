@@ -52,10 +52,21 @@ class TronEnvWrapper:
                 if 0 <= wx < grid_w and 0 <= wy < grid_h:
                     obs[wy, wx, 2] = 1.0
 
-        # Channel 3: X direction
-        obs[:, :, 3] = float(self.env.direction[0])
+        dx, dy = self.env.direction
 
-        # Channel 4: Y direction
-        obs[:, :, 4] = float(self.env.direction[1])
+        # Pygame coords: Up=(0, -1), Right=(1, 0), Down=(0, 1), Left=(-1, 0)
+        if dx == 0 and dy == -1:
+            k = 0  # Facing UP (No rotation)
+        elif dx == 1 and dy == 0:
+            k = 1  # Facing RIGHT (Rotate 90 deg counter-clockwise to face UP)
+        elif dx == 0 and dy == 1:
+            k = 2  # Facing DOWN (Rotate 180 deg)
+        elif dx == -1 and dy == 0:
+            k = 3  # Facing LEFT (Rotate 270 deg counter-clockwise)
+        else:
+            k = 0
+
+        # Rotate the X and Y axes of the observation matrix
+        obs = np.rot90(obs, k=k, axes=(0, 1))
 
         return obs

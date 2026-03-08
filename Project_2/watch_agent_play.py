@@ -63,7 +63,7 @@ def load_params(model, filepath):
     return flax.serialization.from_bytes(template, data)
 
 
-def watch_game():
+def watch_game(human_control=False, debug=False):
     filepath = list_available_params()
 
     # Pass num_actions to the network
@@ -104,8 +104,20 @@ def watch_game():
         root.game_state = abstract_state
 
         mcts.run(root, num_simulations=50)
-        policy, _ = mcts.extract_mcts_data(root, NUM_ACTIONS)
-        action = np.argmax(policy)
+        policy, value = mcts.extract_mcts_data(root, NUM_ACTIONS)
+
+        probs = np.asarray(policy, dtype=np.float32)
+        if debug:
+            print(
+                f"DEBUG: Head: {env.env.head_pos} | Value: {value:.3f} | Action Probs: [Left: {probs[0]:.3f}, Right: {probs[1]:.3f}, Forward: {probs[2]:.3f}]"
+            )
+            current_state = env.get_obs()
+            print(f"DEBUG: State Shape: {current_state.shape}")
+            trail_sum = jnp.sum(current_state[:, :, 1])
+            wall_sum = jnp.sum(current_state[:, :, 2])
+            print(f"DEBUG: Trail pixels: {trail_sum} | Wall pixels: {wall_sum}")
+
+        action = int(np.argmax(probs))
 
         print(f"Step {step_count} | Action: {action}")
 
@@ -118,8 +130,12 @@ def watch_game():
             step_count = 0
             time.sleep(1)
 
+        if human_control:
+            # Wait for user input to proceed to the next step
+            input("Press Enter to continue...")
+
     pygame.quit()
 
 
 if __name__ == "__main__":
-    watch_game()
+    watch_game(human_control=True)
