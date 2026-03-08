@@ -83,6 +83,9 @@ class ReplayBuffer:
                 actions.append(0)
                 rewards.append(0.0)
 
+            while len(discounts) < unroll_steps:
+                discounts.append(0.0)
+
             while len(policies) < unroll_steps + 1:
                 policies.append([1.0 / num_actions] * num_actions)
 
@@ -90,10 +93,19 @@ class ReplayBuffer:
             batch_rewards.append(rewards)
             batch_discounts.append(discounts)
 
-            target_vals = [
-                game.compute_target_value(random_pos + t, n_steps=td_steps)
-                for t in range(unroll_steps + 1)
-            ]
+            target_vals = []
+            for t in range(unroll_steps + 1):
+                step_idx = random_pos + t
+                if step_idx < len(game.states):
+                    target_vals.append(
+                        game.compute_target_value(step_idx, n_steps=td_steps)
+                    )
+                else:
+                    target_vals.append(0.0)
+
+            while len(target_vals) < unroll_steps + 1:
+                target_vals.append(0.0)
+
             batch_values.append(target_vals)
             batch_policies.append(policies)
 

@@ -92,8 +92,12 @@ class GameManager:
         total_reward = sum(game.rewards)
 
         self.replay_buffer.save_game(game)
+
+        num_50s = steps_taken // 50
+        flames = "🔥" * num_50s
+
         print(
-            f"Game finished in {steps_taken} steps with score {score} | total reward {total_reward:.2f}"
+            f"{flames} Game finished in {steps_taken} | total reward {total_reward:.2f}"
         )
 
         return total_reward, steps_taken, score, avg_entropy

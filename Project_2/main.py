@@ -1,4 +1,5 @@
 import os
+
 os.environ["SDL_VIDEODRIVER"] = "dummy"
 
 from game_manager import GameManager
@@ -11,15 +12,16 @@ import flax.serialization
 import os
 from config import NUM_ACTIONS, BOARD_WIDTH, BOARD_HEIGHT
 import wandb
+import time
 
 rng = jax.random.PRNGKey(42)
 
 # ================ Hyperparameters ================
 NUM_GENERATIONS = 5000
 GAMES_PER_GENERATION = 40
-TRAINING_STEPS_PER_GENERATION = 50
+TRAINING_STEPS_PER_GENERATION = 75
 NUM_SIMULATIONS = 25
-LEARNING_RATE = 0.0005
+LEARNING_RATE = 0.0001
 BATCH_SIZE = 64
 UNROLL_STEPS = 5
 SAVE_PARAMS = True
@@ -54,6 +56,7 @@ def main(save_params=SAVE_PARAMS):
         print(f"Playing {GAMES_PER_GENERATION} games... \n")
 
         results = []
+        start_time = time.time()
 
         for _ in range(GAMES_PER_GENERATION):
             try:
@@ -64,6 +67,7 @@ def main(save_params=SAVE_PARAMS):
             except Exception as e:
                 print(f"A game crashed: {e}")
 
+        generation_end_time = time.time()
         if results:
             avg_reward = sum(r[0] for r in results) / len(results)
             avg_steps = sum(r[1] for r in results) / len(results)
@@ -73,6 +77,7 @@ def main(save_params=SAVE_PARAMS):
             print(
                 f"🏆 Average Reward: {avg_reward:.2f} | ⏱️  Average Steps: {avg_steps:.0f} | 👑 Max: {max_steps}"
             )
+            print(f"⏱️  Generation Time: {generation_end_time - start_time:.2f} seconds")
             wandb.log(
                 {
                     "Game/Average_Total_Reward": avg_reward,
@@ -94,6 +99,11 @@ def main(save_params=SAVE_PARAMS):
             UNROLL_STEPS,
             TD_STEPS,
             game_manager,
+        )
+
+        training_end_time = time.time()
+        print(
+            f"⏱️  Training Time: {training_end_time - generation_end_time:.2f} seconds"
         )
 
         game_manager.params = params

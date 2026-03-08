@@ -32,7 +32,7 @@ def loss_function(params, model: MuZeroNet, batch):
     # Recurrent Steps
     for i in range(1, unroll_steps):
         action = batch["actions"][:, i - 1]
-        hidden_state = hidden_state * 0.5 + jax.lax.stop_gradient(hidden_state) * 0.5
+        hidden_state = hidden_state * 0.75 + jax.lax.stop_gradient(hidden_state) * 0.25
 
         hidden_state, pred_reward, pred_discount, raw_policy_scores, pred_value = (
             model.apply(params, hidden_state, action, method=model.recurrent_inference)
@@ -52,7 +52,8 @@ def loss_function(params, model: MuZeroNet, batch):
         step_value_loss = (pred_value.squeeze(-1) - target_value) ** 2
 
         future_loss = discount_loss + step_policy_loss + step_value_loss
-        masked_loss = reward_loss + (future_loss * target_discount)
+        mask = jnp.maximum(target_discount, 0.1)
+        masked_loss = reward_loss + (future_loss * mask)
 
         # Accumulate sums
         total_loss += jnp.sum(masked_loss)
