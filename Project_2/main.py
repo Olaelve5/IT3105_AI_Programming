@@ -45,6 +45,7 @@ def load_params(params, path):
 
 # ================ Run training loop ================
 def main(save_params=SAVE_PARAMS, load_params_path=None):
+    # wandb.init(project="muzero-tron", id="9cggxne5", resume="must")
     wandb.init(project="muzero-tron")
     wandb_starting_gen = 0
 
@@ -143,7 +144,7 @@ def main(save_params=SAVE_PARAMS, load_params_path=None):
 
         game_manager.params = params
 
-        if (gen + 1) % 25 == 0:
+        if (gen + 1 + wandb_starting_gen) % 25 == 0:
             if save_params:
                 os.makedirs("saved_params", exist_ok=True)
                 save_path = (

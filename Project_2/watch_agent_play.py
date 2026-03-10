@@ -138,4 +138,4 @@ def watch_game(human_control=False, debug=False):
 
 
 if __name__ == "__main__":
-    watch_game(human_control=True)
+    watch_game(human_control=False, debug=False)
