@@ -4,7 +4,7 @@ import flax.linen as nn
 from config import NUM_ACTIONS
 
 NUM_CHANNELS = 32
-NUM_RES_BLOCKS = 3
+NUM_RES_BLOCKS = 4
 
 
 def min_max_scale(x, tol=1e-5):
@@ -66,7 +66,7 @@ class DynamicsNet(nn.Module):
         next_state = min_max_scale(x)
         batch_size = next_state.shape[0]
 
-        rd_conv = nn.Conv(features=4, kernel_size=(1, 1))(next_state)
+        rd_conv = nn.Conv(features=16, kernel_size=(1, 1))(next_state)
         rd_conv = nn.relu(rd_conv)
         rd_flat = rd_conv.reshape((batch_size, -1))
 
@@ -88,7 +88,7 @@ class PredictionNet(nn.Module):
         batch_size = state.shape[0]
 
         # --- POLICY HEAD ---
-        p_conv = nn.Conv(features=8, kernel_size=(1, 1))(state)
+        p_conv = nn.Conv(features=32, kernel_size=(1, 1))(state)
         p_conv = nn.relu(p_conv)
         p_flat = p_conv.reshape((batch_size, -1))
 
@@ -97,7 +97,7 @@ class PredictionNet(nn.Module):
         raw_policy_scores = nn.Dense(self.num_actions)(p_hidden)
 
         # --- VALUE HEAD ---
-        v_conv = nn.Conv(features=4, kernel_size=(1, 1))(state)
+        v_conv = nn.Conv(features=16, kernel_size=(1, 1))(state)
         v_conv = nn.relu(v_conv)
         v_flat = v_conv.reshape((batch_size, -1))
 
