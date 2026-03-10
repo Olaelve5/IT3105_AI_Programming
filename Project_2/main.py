@@ -10,12 +10,14 @@ from train import perform_training_steps
 import optax
 import flax.serialization
 import os
+from utils.lates_checkpoint import find_latest_checkpoint
 from config import NUM_ACTIONS, BOARD_WIDTH, BOARD_HEIGHT
 import wandb
 import time
 import sys
 
 rng = jax.random.PRNGKey(42)
+print("🚨 JAX IS USING:", jax.devices())
 
 # ================ Hyperparameters ================
 NUM_GENERATIONS = 10000
@@ -43,9 +45,9 @@ def load_params(params, path):
 
 
 # ================ Run training loop ================
-def main(save_params=SAVE_PARAMS, load_params_path=None):
-    # wandb.init(project="muzero-tron", id="9cggxne5", resume="must")
-    wandb.init(project="muzero-tron")
+def main(save_params=SAVE_PARAMS, load_checkpoint=True):
+    wandb.init(project="muzero-tron", resume="allow", id="muzero-tron-run-v2")
+    #wandb.init(project="muzero-tron")
     wandb_starting_gen = 0
 
     # Model initialization
@@ -54,8 +56,13 @@ def main(save_params=SAVE_PARAMS, load_params_path=None):
     dummy_act = jnp.array([0])
     params = model.init(rng, dummy_obs, dummy_act, method=model.init_params)
 
-    if load_params_path:
-        params = load_params(params, load_params_path)
+    if load_checkpoint:
+        checkpoint, gen_number = find_latest_checkpoint()
+        if checkpoint:
+            params = load_params(params, checkpoint)
+            wandb_starting_gen = gen_number
+        else:
+            print("⚠️  No checkpoints found. Starting training from scratch.")
 
     # Optimizer
     optimizer = optax.chain(
@@ -114,8 +121,7 @@ def main(save_params=SAVE_PARAMS, load_params_path=None):
                     "Game/Average_Episode_Length": avg_steps,
                     "Game/Average_Score": avg_score,
                     "MCTS/Average_Entropy": avg_entropy,
-                },
-                step=gen + wandb_starting_gen,
+                }
             )
 
         # Scale training steps to available data (avoid overfitting small buffers)
@@ -162,15 +168,8 @@ def main(save_params=SAVE_PARAMS, load_params_path=None):
 
         # Save the best model based on average reward
         if avg_reward > best_avg_reward:
+            print(f"🏆 NEW HIGH SCORE! ({best_avg_reward:.2f})")
             best_avg_reward = avg_reward
-            if save_params:
-                os.makedirs("saved_params", exist_ok=True)
-                best_save_path = "saved_params/best_model.msgpack"
-                with open(best_save_path, "wb") as f:
-                    f.write(flax.serialization.to_bytes(params))
-                print(
-                    f"🏆 NEW HIGH SCORE! ({best_avg_reward:.2f}) Saved best brain -> {best_save_path}"
-                )
 
     print("\nTraining complete!")
 
