@@ -24,7 +24,7 @@ class TronEnvWrapper:
         grid_w = self.env.width // self.env.grid_size
         grid_h = self.env.height // self.env.grid_size
 
-        obs = np.zeros((grid_h, grid_w, 5), dtype=np.float32)
+        obs = np.zeros((grid_h, grid_w, 3), dtype=np.float32)
 
         # Channel 0: Head
         head_x = int(self.env.head_pos[0] // self.env.grid_size)

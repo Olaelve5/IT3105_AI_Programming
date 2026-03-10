@@ -3,8 +3,8 @@ import jax.numpy as jnp
 import flax.linen as nn
 from config import NUM_ACTIONS
 
-NUM_CHANNELS = 32
-NUM_RES_BLOCKS = 3
+NUM_CHANNELS = 64
+NUM_RES_BLOCKS = 5
 
 
 def min_max_scale(x, tol=1e-5):
@@ -47,7 +47,7 @@ class DynamicsNet(nn.Module):
     def __call__(self, state, action):
         action_one_hot = jax.nn.one_hot(action, self.num_actions)
 
-        action_embedded = nn.Dense(4)(action_one_hot)
+        action_embedded = nn.Dense(8)(action_one_hot)
         action_embedded = nn.relu(action_embedded)
 
         action_plane = jnp.tile(
@@ -66,11 +66,11 @@ class DynamicsNet(nn.Module):
         next_state = min_max_scale(x)
         batch_size = next_state.shape[0]
 
-        rd_conv = nn.Conv(features=4, kernel_size=(1, 1))(next_state)
+        rd_conv = nn.Conv(features=16, kernel_size=(1, 1))(next_state)
         rd_conv = nn.relu(rd_conv)
         rd_flat = rd_conv.reshape((batch_size, -1))
 
-        hidden = nn.Dense(128)(rd_flat)
+        hidden = nn.Dense(256)(rd_flat)
         hidden = nn.relu(hidden)
 
         reward = nn.Dense(1)(hidden)
@@ -88,20 +88,20 @@ class PredictionNet(nn.Module):
         batch_size = state.shape[0]
 
         # --- POLICY HEAD ---
-        p_conv = nn.Conv(features=8, kernel_size=(1, 1))(state)
+        p_conv = nn.Conv(features=32, kernel_size=(1, 1))(state)
         p_conv = nn.relu(p_conv)
         p_flat = p_conv.reshape((batch_size, -1))
 
-        p_hidden = nn.Dense(128)(p_flat)
+        p_hidden = nn.Dense(256)(p_flat)
         p_hidden = nn.relu(p_hidden)
         raw_policy_scores = nn.Dense(self.num_actions)(p_hidden)
 
         # --- VALUE HEAD ---
-        v_conv = nn.Conv(features=4, kernel_size=(1, 1))(state)
+        v_conv = nn.Conv(features=16, kernel_size=(1, 1))(state)
         v_conv = nn.relu(v_conv)
         v_flat = v_conv.reshape((batch_size, -1))
 
-        v_hidden = nn.Dense(128)(v_flat)
+        v_hidden = nn.Dense(256)(v_flat)
         v_hidden = nn.relu(v_hidden)
         value = nn.Dense(1)(v_hidden)
 
