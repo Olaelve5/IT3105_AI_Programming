@@ -4,3 +4,5 @@ saved_params copy/
 *.msgpack
 .env
 wandb/
+media/
+*.slurm

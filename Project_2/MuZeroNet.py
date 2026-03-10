@@ -3,104 +3,107 @@ import jax.numpy as jnp
 import flax.linen as nn
 from config import NUM_ACTIONS
 
-"""
-This file defines the neural network architecture for MuZero.
-
-@nn.compact is a Flax decorator that allows us to define layers inline without a separate setup() method.
-This way we don't have to initialize layers in a constructor -> we just pass the input through the layers directly.
-"""
-
-
-# A hyperparameter to control the size of our abstract state representation
 NUM_CHANNELS = 32
+NUM_RES_BLOCKS = 3
 
 
-class RepresentationNet(nn.Module):
-    """
-    The Representation Network takes the raw game state (20x10 grid) and
-    transforms it into an abstract "state" representation.
+def min_max_scale(x, tol=1e-5):
+    max_val = jnp.max(x, axis=(1, 2, 3), keepdims=True)
+    min_val = jnp.min(x, axis=(1, 2, 3), keepdims=True)
+    return (x - min_val) / (max_val - min_val + tol)
 
-    It uses the ResNet architecture with convolutional layers to ensure information is not lost.
 
-    Returns a tensor of shape (Batch, 10, 5, NUM_CHANNELS) which is a compressed version of the game state.
-    """
+class ResBlock(nn.Module):
+    features: int
 
     @nn.compact
     def __call__(self, x):
-        x = nn.Conv(
-            features=NUM_CHANNELS, kernel_size=(3, 3), padding="SAME"
-        )(x)
-        x = nn.relu(x)
-
-        # Store the original game state as a residual
         residual = x
-
-        x = nn.Conv(features=NUM_CHANNELS, kernel_size=(3, 3), padding="SAME")(x)
+        x = nn.Conv(features=self.features, kernel_size=(3, 3), padding="SAME")(x)
+        x = nn.LayerNorm()(x)
         x = nn.relu(x)
+        x = nn.Conv(features=self.features, kernel_size=(3, 3), padding="SAME")(x)
+        x = nn.LayerNorm()(x)
+        return nn.relu(x + residual)
+
+
+class RepresentationNet(nn.Module):
+    @nn.compact
+    def __call__(self, x):
         x = nn.Conv(features=NUM_CHANNELS, kernel_size=(3, 3), padding="SAME")(x)
-        x = x + residual
+        x = nn.LayerNorm()(x)
         x = nn.relu(x)
 
-        return x
+        for _ in range(NUM_RES_BLOCKS):
+            x = ResBlock(NUM_CHANNELS)(x)
+
+        return min_max_scale(x)
 
 
 class DynamicsNet(nn.Module):
-    """
-    The Dynamics Network takes the current abstract state and an action, and predicts the next abstract state and the reward.
-    """
-
     num_actions: int = NUM_ACTIONS
 
     @nn.compact
     def __call__(self, state, action):
         action_one_hot = jax.nn.one_hot(action, self.num_actions)
 
-        # Transform the action into a plane so it can be used in layers
+        action_embedded = nn.Dense(4)(action_one_hot)
+        action_embedded = nn.relu(action_embedded)
+
         action_plane = jnp.tile(
-            action_one_hot[:, None, None, :], (1, state.shape[1], state.shape[2], 1)
+            action_embedded[:, None, None, :], (1, state.shape[1], state.shape[2], 1)
         )
 
-        # Concatenate the state and action along the channel dimension
         x = jnp.concatenate([state, action_plane], axis=-1)
 
-        # Next state prediction: use NUM_CHANNELS filters to maintain the same abstract state size
-        next_state = nn.Conv(features=NUM_CHANNELS, kernel_size=(3, 3), padding="SAME")(
-            x
-        )
-        next_state = nn.relu(next_state)
+        x = nn.Conv(features=NUM_CHANNELS, kernel_size=(3, 3), padding="SAME")(x)
+        x = nn.LayerNorm()(x)
+        x = nn.relu(x)
 
-        # Flatten the next state and pass through a dense layer to predict the reward
-        flat_x = x.reshape((x.shape[0], -1))
-        hidden = nn.Dense(256)(flat_x)
+        for _ in range(NUM_RES_BLOCKS):
+            x = ResBlock(NUM_CHANNELS)(x)
+
+        next_state = min_max_scale(x)
+        batch_size = next_state.shape[0]
+
+        rd_conv = nn.Conv(features=4, kernel_size=(1, 1))(next_state)
+        rd_conv = nn.relu(rd_conv)
+        rd_flat = rd_conv.reshape((batch_size, -1))
+
+        hidden = nn.Dense(128)(rd_flat)
         hidden = nn.relu(hidden)
 
-        reward = nn.Dense(1)(flat_x)
-
-        # Predict the discount (essentially whether the game is over)
-        discount_logits = nn.Dense(1)(flat_x)
+        reward = nn.Dense(1)(hidden)
+        discount_logits = nn.Dense(1)(hidden)
         discount = nn.sigmoid(discount_logits)
 
         return next_state, reward, discount
 
 
 class PredictionNet(nn.Module):
-    """
-    The Prediction Network takes the abstract state and predicts both the
-    action probabilities and the value (expected reward).
-    """
-
     num_actions: int = NUM_ACTIONS
 
     @nn.compact
     def __call__(self, state):
-        flat = state.reshape((state.shape[0], -1))
+        batch_size = state.shape[0]
 
-        hidden = nn.Dense(256)(flat)
-        hidden = nn.relu(hidden)
+        # --- POLICY HEAD ---
+        p_conv = nn.Conv(features=8, kernel_size=(1, 1))(state)
+        p_conv = nn.relu(p_conv)
+        p_flat = p_conv.reshape((batch_size, -1))
 
-        # Two heads for policy and value
-        raw_policy_scores = nn.Dense(self.num_actions)(hidden)
-        value = nn.Dense(1)(hidden)
+        p_hidden = nn.Dense(128)(p_flat)
+        p_hidden = nn.relu(p_hidden)
+        raw_policy_scores = nn.Dense(self.num_actions)(p_hidden)
+
+        # --- VALUE HEAD ---
+        v_conv = nn.Conv(features=4, kernel_size=(1, 1))(state)
+        v_conv = nn.relu(v_conv)
+        v_flat = v_conv.reshape((batch_size, -1))
+
+        v_hidden = nn.Dense(128)(v_flat)
+        v_hidden = nn.relu(v_hidden)
+        value = nn.Dense(1)(v_hidden)
 
         return raw_policy_scores, value
 
@@ -113,7 +116,6 @@ class MuZeroNet(nn.Module):
         self._dynamics = DynamicsNet()
         self._prediction = PredictionNet()
 
-    # Wrappers to make the networks available to Flax's apply method
     def representation(self, observation):
         return self._representation(observation)
 
@@ -124,18 +126,15 @@ class MuZeroNet(nn.Module):
         return self._dynamics(state, action)
 
     def init_params(self, observation, action):
-        # Used for initializing the model parameters with dummy data
         state, _, _ = self.initial_inference(observation)
         self.recurrent_inference(state, action)
 
     def initial_inference(self, observation):
-        # Used once, at the root of the search tree, to get the initial state and predictions
         state = self.representation(observation)
         raw_policy_scores, value = self.prediction(state)
         return state, raw_policy_scores, value
 
     def recurrent_inference(self, state, action):
-        # Used when simulating future steps in the search tree
         next_state, reward, discount = self.dynamics(state, action)
         raw_policy_scores, value = self.prediction(next_state)
         return next_state, reward, discount, raw_policy_scores, value
