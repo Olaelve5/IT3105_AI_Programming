@@ -46,7 +46,7 @@ def load_params(params, path):
 
 # ================ Run training loop ================
 def main(save_params=SAVE_PARAMS, load_checkpoint=True):
-    wandb.init(project="muzero-tron", resume="allow", id="muzero-tron-run-v2")
+    wandb.init(project="muzero-tron", resume="allow", id="muzero-tron-run-v3")
     #wandb.init(project="muzero-tron")
     wandb_starting_gen = 0
 
@@ -65,8 +65,14 @@ def main(save_params=SAVE_PARAMS, load_checkpoint=True):
             print("⚠️  No checkpoints found. Starting training from scratch.")
 
     # Optimizer
+    lr_schedule = optax.cosine_decay_schedule(
+        init_value=LEARNING_RATE,   
+        decay_steps=20000,  
+        alpha=0.05           
+    )
     optimizer = optax.chain(
-        optax.clip_by_global_norm(5.0), optax.adamw(LEARNING_RATE, weight_decay=1e-4)
+        optax.clip_by_global_norm(5.0), 
+        optax.adamw(lr_schedule, weight_decay=1e-4)
     )
     opt_state = optimizer.init(params)
 

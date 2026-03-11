@@ -5,7 +5,7 @@ from config import NUM_ACTIONS
 
 
 class Game:
-    def __init__(self, discount=0.99):
+    def __init__(self, discount=0.997):
         self.states = []
         self.actions = []
         self.rewards = []
