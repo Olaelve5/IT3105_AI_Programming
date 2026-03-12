@@ -40,7 +40,7 @@ def perform_training_steps(
     # Training loop: sample data -> calculate loss -> update params
     for _ in range(num_training_steps):
         batch = game_manager.replay_buffer.sample_batch(
-            batch_size, td_steps, unroll_steps
+            batch_size=batch_size, td_steps=td_steps, unroll_steps=unroll_steps
         )
 
         if batch is None:

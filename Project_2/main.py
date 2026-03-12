@@ -21,12 +21,12 @@ print("🚨 JAX IS USING:", jax.devices())
 
 # ================ Hyperparameters ================
 NUM_GENERATIONS = 10000
-TARGET_STEPS_PER_GENERATION = 1000
+TARGET_STEPS_PER_GENERATION = 500
 TRAINING_STEPS_PER_GENERATION = 100
-NUM_SIMULATIONS = 100
+NUM_SIMULATIONS = 150
 LEARNING_RATE = 0.0002
 BATCH_SIZE = 256
-UNROLL_STEPS = 10
+UNROLL_STEPS = 6
 SAVE_PARAMS = True
 TD_STEPS = 100
 
@@ -46,7 +46,7 @@ def load_params(params, path):
 
 # ================ Run training loop ================
 def main(save_params=SAVE_PARAMS, load_checkpoint=True):
-    wandb.init(project="muzero-tron", resume="allow", id="muzero-tron-run-v3")
+    wandb.init(project="muzero-tron", resume="allow", id="muzero-tron-run-v6")
     #wandb.init(project="muzero-tron")
     wandb_starting_gen = 0
 

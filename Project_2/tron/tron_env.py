@@ -89,7 +89,7 @@ class TronEnv:
         self.draw_board(padding_top)
 
         pygame.display.flip()
-        self.clock.tick(20)
+        self.clock.tick(30)
 
     def draw_header(self, padding_top):
         header_color = (255, 255, 255)
