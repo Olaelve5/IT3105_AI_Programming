@@ -100,4 +100,4 @@ class GameManager:
             f"{flames} Game finished in {steps_taken} | total reward {total_reward:.2f}"
         )
 
-        return total_reward, steps_taken, score, avg_entropy
+        return total_reward, steps_taken, score, avg_entropy, game

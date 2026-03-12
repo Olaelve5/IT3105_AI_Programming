@@ -40,7 +40,7 @@ class Game:
 
 
 class ReplayBuffer:
-    def __init__(self, capacity=20000):
+    def __init__(self, capacity=25000):
         self.buffer = collections.deque(maxlen=capacity)
         self.total_steps = 0
 

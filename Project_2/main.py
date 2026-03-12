@@ -15,20 +15,22 @@ from config import NUM_ACTIONS, BOARD_WIDTH, BOARD_HEIGHT
 import wandb
 import time
 import sys
+import numpy as np
 
 rng = jax.random.PRNGKey(42)
 print("🚨 JAX IS USING:", jax.devices())
 
 # ================ Hyperparameters ================
 NUM_GENERATIONS = 10000
-TARGET_STEPS_PER_GENERATION = 500
+TARGET_STEPS_PER_GENERATION = 1000
 TRAINING_STEPS_PER_GENERATION = 100
-NUM_SIMULATIONS = 250
+NUM_SIMULATIONS = 100
 LEARNING_RATE = 0.0002
-BATCH_SIZE = 96
+BATCH_SIZE = 256
 UNROLL_STEPS = 6
 SAVE_PARAMS = True
 TD_STEPS = 100
+RUN_NAME = "muzero-tron-run-v10"
 
 
 # ================ Load Params Function ================
@@ -46,20 +48,25 @@ def load_params(params, path):
 
 # ================ Run training loop ================
 def main(save_params=SAVE_PARAMS, load_checkpoint=True):
-    wandb.init(project="muzero-tron", id="muzero-tron-run-v9", resume="allow")
-    wandb.config.update({
-        "num_generations": NUM_GENERATIONS,
-        "target_steps_per_generation": TARGET_STEPS_PER_GENERATION,
-        "training_steps_per_generation": TRAINING_STEPS_PER_GENERATION,
-        "num_simulations": NUM_SIMULATIONS,
-        "learning_rate": LEARNING_RATE,
-        "batch_size": BATCH_SIZE,
-        "unroll_steps": UNROLL_STEPS,
-        "td_steps": TD_STEPS,
-        "num_channels": 32,
-        "num_res_blocks": 5,
-    })
+    wandb.init(project="muzero-tron", id=RUN_NAME, resume="allow")
+    wandb.config.update(
+        {
+            "num_generations": NUM_GENERATIONS,
+            "target_steps_per_generation": TARGET_STEPS_PER_GENERATION,
+            "training_steps_per_generation": TRAINING_STEPS_PER_GENERATION,
+            "num_simulations": NUM_SIMULATIONS,
+            "learning_rate": LEARNING_RATE,
+            "batch_size": BATCH_SIZE,
+            "unroll_steps": UNROLL_STEPS,
+            "td_steps": TD_STEPS,
+            "num_channels": 64,
+            "num_res_blocks": 5,
+        }
+    )
     wandb_starting_gen = 0
+
+    # Folder for replays
+    os.makedirs(f"replays/{RUN_NAME}", exist_ok=True)
 
     # Model initialization
     model = MuZeroNet(num_actions=NUM_ACTIONS)
@@ -77,13 +84,10 @@ def main(save_params=SAVE_PARAMS, load_checkpoint=True):
 
     # Optimizer
     lr_schedule = optax.cosine_decay_schedule(
-        init_value=LEARNING_RATE,   
-        decay_steps=20000,  
-        alpha=0.05           
+        init_value=LEARNING_RATE, decay_steps=20000, alpha=0.05
     )
     optimizer = optax.chain(
-        optax.clip_by_global_norm(5.0), 
-        optax.adamw(lr_schedule, weight_decay=1e-4)
+        optax.clip_by_global_norm(5.0), optax.adamw(lr_schedule, weight_decay=1e-4)
     )
     opt_state = optimizer.init(params)
 
@@ -100,6 +104,7 @@ def main(save_params=SAVE_PARAMS, load_checkpoint=True):
         print(f"===== Generation {gen + 1 + wandb_starting_gen} =====")
 
         results = []
+        games_this_generation = []
         start_time = time.time()
         steps_gathered = 0
         games_played = 0
@@ -107,10 +112,13 @@ def main(save_params=SAVE_PARAMS, load_checkpoint=True):
         print(f"Gathering ~{TARGET_STEPS_PER_GENERATION} steps of experience...")
         while steps_gathered < TARGET_STEPS_PER_GENERATION:
             try:
-                total_reward, steps, lines, entropy = game_manager.play_single_episode(
-                    max_episode_length=400,
+                total_reward, steps, lines, entropy, game = (
+                    game_manager.play_single_episode(
+                        max_episode_length=400,
+                    )
                 )
                 results.append((total_reward, steps, lines, entropy))
+                games_this_generation.append(game)
 
                 steps_gathered += steps
                 games_played += 1
@@ -187,6 +195,22 @@ def main(save_params=SAVE_PARAMS, load_checkpoint=True):
         if avg_reward > best_avg_reward:
             print(f"🏆 NEW HIGH SCORE! ({best_avg_reward:.2f})")
             best_avg_reward = avg_reward
+
+        # Save some games
+        if gen % 10 == 0 and games_this_generation:
+            best_game = max(games_this_generation, key=lambda g: len(g))
+            states_array_best = np.array(best_game.states)
+            filename_best = f"replays/{RUN_NAME}/gen_{gen}_score_{len(best_game)}.npy"
+            np.save(filename_best, states_array_best)
+
+            rest_of_games = [g for g in games_this_generation if g != best_game]
+            if rest_of_games:
+                random_game = np.random.choice(rest_of_games)
+                states_array_random = np.array(random_game.states)
+                filename_random = (
+                    f"replays/{RUN_NAME}/gen_{gen}_score_{len(random_game)}.npy"
+                )
+                np.save(filename_random, states_array_random)
 
     print("\nTraining complete!")
 
