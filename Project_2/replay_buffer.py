@@ -64,9 +64,7 @@ class ReplayBuffer:
         batch_policies = []
         batch_discounts = []
 
-        # Prioritize games with more steps (need more training on late-game)
-        weights = [len(g) for g in self.buffer]
-        selected_games = random.choices(self.buffer, weights=weights, k=batch_size)
+        selected_games = random.choices(self.buffer, k=batch_size)
 
         for game in selected_games:
             random_pos = random.randint(0, len(game) - 1)
