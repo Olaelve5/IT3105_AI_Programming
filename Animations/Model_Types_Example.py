@@ -1,57 +1,66 @@
 from manim import *
+from config import BACKGROUND_COLOR
 
 
 class ModelTypesExample(Scene):
     def construct(self):
-        self.camera.background_color = "#1F2225"
+        self.camera.background_color = BACKGROUND_COLOR
+
+        self.left_center = LEFT * config.frame_width / 4
+        self.right_center = RIGHT * config.frame_width / 4
+
         self.show_image()
         self.show_text()
 
     def show_image(self):
         pacman_image = ImageMobject("resources/pacman.png")
-        pacman_image.set_height(config.frame_height * 0.75)
-        pacman_image.to_edge(LEFT, buff=0.5)
+        pacman_image.set_height(config.frame_height * 0.7)
 
         border = SurroundingRectangle(
             pacman_image, color=BLUE, buff=0.1, stroke_width=4, corner_radius=0.2
         )
 
-        # Add both to the scene
-        self.add(pacman_image, border)
+        image_group = Group(pacman_image, border)
+        image_group.move_to(self.left_center)
+
+        self.play(FadeIn(image_group))
+        self.wait(6)
 
     def show_text(self):
-        title_free = Text("Model-Free Method:", font_size=32, weight=BOLD, color=ORANGE)
-        title_based = Text("Model-Based Method:", font_size=32, weight=BOLD, color=BLUE)
-
-        free_subtitle = Paragraph(
-            "I know from my experience that going right in this position",
-            " will probably lead to a game over.",
-            "I don't know why, but I just know it.",
-            font_size=24,
+        title_free = Text("Model-Free Agent:", font_size=32, weight=BOLD, color=ORANGE)
+        free_subtitle = MarkupText(
+            'I know from my experience that turning <span foreground="yellow">right</span> in this\n'
+            'position will probably lead to a <span foreground="red">game over</span>.\n'
+            "\nI don't know why, but I just know it.",
+            font_size=22,
             color=WHITE,
         )
+        # Ensure the subtitle aligns to the LEFT of the title
+        free_block = VGroup(title_free, free_subtitle).arrange(
+            DOWN, aligned_edge=LEFT, buff=0.3
+        )
 
-        based_subtitle = Paragraph(
-            "I have a model of the game, and I can simulate what happens if I go right.",
-            "I can see that it leads to a game over, so I won't go right.",
-            font_size=24,
+        title_based = Text("Model-Based Agent:", font_size=32, weight=BOLD, color=BLUE)
+        based_subtitle = MarkupText(
+            "I have a model of the game, and I can simulate\n"
+            'what happens if I turn <span foreground="yellow">right</span>. \n'
+            '\nI can see that it leads to a <span foreground="red">game over</span>,\nso I won\'t turn right.',
+            font_size=22,
             color=WHITE,
         )
-
-        free_group = VGroup(title_free, free_subtitle).arrange(DOWN, aligned_edge=LEFT)
-        based_group = VGroup(title_based, based_subtitle).arrange(
-            DOWN, aligned_edge=LEFT
+        based_block = VGroup(title_based, based_subtitle).arrange(
+            DOWN, aligned_edge=LEFT, buff=0.3
         )
 
-        free_group.to_edge(UP, buff=0.5).to_edge(RIGHT, buff=0.5)
-        based_group.to_edge(DOWN, buff=0.5).to_edge(RIGHT, buff=0.5)
+        all_text = VGroup(free_block, based_block).arrange(
+            DOWN, aligned_edge=LEFT, buff=1.2
+        )
+        all_text.move_to(self.right_center)
 
+        # Animations
         self.play(Write(title_free))
-        self.wait(1)
-        self.play(Write(free_subtitle))
-        self.wait(2)
-
+        self.play(FadeIn(free_subtitle, shift=UP * 0.2))
+        self.wait(6)
         self.play(Write(title_based))
-        self.wait(1)
-        self.play(Write(based_subtitle))
-        self.wait(2)
+        self.play(FadeIn(based_subtitle, shift=UP * 0.2))
+        self.wait(6)
