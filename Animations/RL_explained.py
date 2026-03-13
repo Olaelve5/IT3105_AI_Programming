@@ -23,11 +23,11 @@ class RL_Explained(Scene):
 
     def show_rl_loop(self):
         # Environment ------------------------->
-        env_box = Rectangle(width=3, height=2, color=RED).shift(RIGHT * 3)
+        env_box = Rectangle(width=3, height=2, color=RED, corner_radius=0.2).shift(RIGHT * 3)
         env_label = Text("Environment", font_size=24).move_to(env_box)
 
         # Agent ------------------------->
-        agent_box = Rectangle(width=3, height=2, color=GREEN).shift(LEFT * 3)
+        agent_box = Rectangle(width=3, height=2, color=GREEN, corner_radius=0.2).shift(LEFT * 3)
 
         image = ImageMobject("resources/agent.png").scale(0.2)
         agent_text = Text("Agent", font_size=24)

@@ -3,7 +3,7 @@ from manim import *
 
 class ModelTypes(Scene):
     def construct(self):
-        self.camera.background_color = "#0A0B0D"
+        self.camera.background_color = "#192023"
 
         self.show_big_title()
         self.show_model_types()
