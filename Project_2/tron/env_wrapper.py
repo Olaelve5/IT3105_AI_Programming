@@ -40,6 +40,11 @@ class TronEnvWrapper:
                 obs[y_idx, x_idx, 1] = 1.0
 
         # Channel 2: Walls
+        obs[0, :, 2] = 1.0
+        obs[-1, :, 2] = 1.0
+        obs[:, 0, 2] = 1.0
+        obs[:, -1, 2] = 1.0
+        
         if hasattr(self.env, "walls"):
             for wall_pos in self.env.walls:
                 wx = int(wall_pos[0] // self.env.grid_size)

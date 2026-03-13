@@ -46,7 +46,7 @@ class UMCTS:
         self.num_actions = NUM_ACTIONS
         self.discount_factor = discount_factor
 
-    def expand_root(self, root_node: MCTSNode):
+    def expand_root(self, root_node: MCTSNode, inject_noise=True):
         """Expands root and applies noise for exploration."""
         action_probs_jax, predicted_value_jax = prediction_inference_fn(
             self.params, self.model, root_node.game_state
@@ -59,22 +59,23 @@ class UMCTS:
         exp_logits = np.exp(logits - max_logit)
         action_probs = exp_logits / np.sum(exp_logits)
 
-        noise = np.random.dirichlet([0.3] * self.num_actions)
-        action_probs = 0.75 * action_probs + 0.25 * noise
+        if inject_noise:
+            noise = np.random.dirichlet([0.3] * self.num_actions)
+            action_probs = 0.75 * action_probs + 0.25 * noise
 
         for i in range(self.num_actions):
             root_node.children[i] = MCTSNode(action_probs[i])
 
         return predicted_value
 
-    def run(self, root_node: MCTSNode, num_simulations=50):
+    def run(self, root_node: MCTSNode, num_simulations=50, inject_noise=True):
         """
         Runs the full algorithm.
         """
         min_max = MinMaxStats()
 
         if not root_node.is_expanded():
-            root_value = self.expand_root(root_node)
+            root_value = self.expand_root(root_node, inject_noise)
             root_node.value_sum = root_value
             root_node.visit_count = 1
             min_max.update(root_value)

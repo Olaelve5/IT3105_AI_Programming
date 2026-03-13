@@ -67,8 +67,14 @@ class TronEnv:
     def check_collision(self, pos):
         if pos in self.body_positions:
             return True
-        if not (0 <= pos[0] < self.width and 0 <= pos[1] < self.height):
+        
+        min_bound = self.grid_size
+        max_x_bound = self.width - self.grid_size
+        max_y_bound = self.height - self.grid_size
+        
+        if not (min_bound <= pos[0] < max_x_bound and min_bound <= pos[1] < max_y_bound):
             return True
+
         if pos in self.walls:
             return True
         return False
@@ -92,7 +98,7 @@ class TronEnv:
         self.clock.tick(30)
 
     def draw_header(self, padding_top):
-        header_color = (255, 255, 255)
+        header_color = (138, 255, 222)
         pygame.draw.rect(self.screen, header_color, (0, 0, self.width, padding_top))
 
         font = pygame.font.SysFont("monospace", 24, bold=True)
@@ -125,6 +131,29 @@ class TronEnv:
                 WALL_COLOR,
                 (wall[0], wall[1] + padding_top, self.grid_size, self.grid_size),
             )
+        
+        # draw outside walls
+        pygame.draw.rect(
+            self.screen,
+            WALL_COLOR,
+            (0, padding_top, self.width, self.grid_size),
+        )
+        pygame.draw.rect(
+            self.screen,
+            WALL_COLOR,
+            (0, padding_top + self.height - self.grid_size, self.width, self.grid_size),
+        )
+        pygame.draw.rect(
+            self.screen,
+            WALL_COLOR,
+            (0, padding_top, self.grid_size, self.height),
+        )
+        pygame.draw.rect(
+            self.screen,
+            WALL_COLOR,
+            (self.width - self.grid_size, padding_top, self.grid_size, self.height),
+        )
+
 
         for x in range(0, self.width + 1, self.grid_size):
             pygame.draw.line(
