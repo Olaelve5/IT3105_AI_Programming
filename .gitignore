@@ -6,3 +6,4 @@ saved_params copy/
 wandb/
 media/
 *.slurm
+replays/

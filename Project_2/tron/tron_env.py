@@ -73,7 +73,7 @@ class TronEnv:
             return True
         return False
 
-    def render(self):
+    def render(self, do_flip=True):
         if not pygame.get_init():
             pygame.init()
 
@@ -88,8 +88,9 @@ class TronEnv:
         self.draw_header(padding_top)
         self.draw_board(padding_top)
 
-        pygame.display.flip()
-        self.clock.tick(20)
+        if do_flip:
+            pygame.display.flip()
+            self.clock.tick(20)
 
     def draw_header(self, padding_top):
         header_color = (255, 255, 255)
