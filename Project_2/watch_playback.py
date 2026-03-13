@@ -2,10 +2,6 @@ import os
 import sys
 import time
 import random
-
-# Force Mac to use CPU for the thinking phase - it's much faster for batch_size=1
-os.environ["JAX_PLATFORM_NAME"] = "cpu"
-
 import jax
 import jax.numpy as jnp
 import flax.serialization
@@ -20,8 +16,11 @@ from tron.tron_env import TronEnv
 from tron.env_wrapper import TronEnvWrapper
 from config import NUM_ACTIONS, BOARD_WIDTH, BOARD_HEIGHT
 
-# Update this path to where your Tron params are saved
+# --- CONFIGURATION ---
 PARAMS_FOLDER = "saved_params"
+NUM_GAMES = 10  # How many games to pre-calculate
+PLAYBACK_FPS = 20  # Speed of the playback highlight reel
+STARTING_SEED = 42  # Base seed to ensure reproducibility
 
 
 def list_available_params():
@@ -58,7 +57,7 @@ def list_available_params():
 
 def load_params(model, filepath):
     rng = jax.random.PRNGKey(0)
-    dummy_obs = jnp.ones((1, BOARD_HEIGHT, BOARD_WIDTH, 5))
+    dummy_obs = jnp.ones((1, BOARD_HEIGHT, BOARD_WIDTH, 3))
     dummy_act = jnp.array([0])
     template = model.init(rng, dummy_obs, dummy_act, method=model.init_params)
 
@@ -81,88 +80,94 @@ def precalculate_and_playback():
         lambda p, s: model.apply(p, s, method=model.representation)
     )
 
-    # --- PHASE 1: THINK IN THE DARK ---
-    print("\n🧠 AI is thinking... Pre-calculating the entire game silently.")
-    print("Please wait. It is running 50 MCTS simulations per move...")
-    
-    # We freeze the random seed so the environment spawns identically both times
-    MASTER_SEED = 42
-    random.seed(MASTER_SEED)
-    np.random.seed(MASTER_SEED)
-    
-    # If your environment supports seeding directly, uncomment this:
-    # env.env.seed(MASTER_SEED)
-    
-    game_state = env.reset()
-    terminated = False
-    step_count = 0
-    actions_taken = []
+    # We will store the history of all 10 games here.
+    # Format: [(seed, [action1, action2, ...]), ...]
+    all_games_history = []
 
+    # --- PHASE 1: THINK IN THE DARK ---
+    print(f"\n🧠 AI is thinking... Pre-calculating {NUM_GAMES} games silently.")
     start_time = time.time()
 
-    while not terminated:
-        step_count += 1
+    for game_idx in range(NUM_GAMES):
+        # Create a unique seed for this specific game
+        game_seed = STARTING_SEED + game_idx
+        random.seed(game_seed)
+        np.random.seed(game_seed)
+
+        mcts = UMCTS(model, params) 
         
-        # We DO NOT render here. Just pure math.
-        state_jnp = jnp.array([game_state])
-        abstract_state = representation_fn(params, state_jnp)
+        game_state = env.reset()
+        terminated = False
+        step_count = 0
+        actions_taken = []
 
-        root = MCTSNode(prior=1.0)
-        root.game_state = abstract_state
+        print(f"Simulating Game {game_idx + 1}/{NUM_GAMES}...")
 
-        mcts.run(root, num_simulations=50)
-        policy, _ = mcts.extract_mcts_data(root, NUM_ACTIONS)
+        while not terminated:
+            step_count += 1
 
-        probs = np.asarray(policy, dtype=np.float32)
-        action = int(np.argmax(probs))
-        
-        # Save the move for the movie later
-        actions_taken.append(action)
+            # Pure math, no rendering
+            state_jnp = jnp.array([game_state])
+            abstract_state = representation_fn(params, state_jnp)
 
-        game_state, _, terminated = env.step(action)
+            root = MCTSNode(prior=1.0)
+            root.game_state = abstract_state
 
-        if step_count % 10 == 0:
-            print(f"   ...calculated {step_count} steps...")
+            mcts.run(root, num_simulations=100)
+            policy, _ = mcts.extract_mcts_data(root, NUM_ACTIONS)
+
+            probs = np.asarray(policy, dtype=np.float32)
+            #action = int(np.argmax(probs))
+            action = np.random.choice(NUM_ACTIONS, p=probs)
+            
+            actions_taken.append(action)
+            game_state, _, terminated = env.step(action)
+
+        all_games_history.append((game_seed, actions_taken))
+        print(f"   -> Survived {step_count} steps.")
 
     calc_time = time.time() - start_time
-    print(f"\n✅ Calculation complete! The agent survived {step_count} steps.")
-    print(f"⏱️  Thinking took {calc_time:.1f} seconds.")
-    print("🎬 Starting 60 FPS Playback in 2 seconds...\n")
+    print(f"\n✅ Calculation complete! Total thinking time: {calc_time:.1f} seconds.")
+    print(f"🎬 Starting {PLAYBACK_FPS} FPS Playback in 2 seconds...\n")
     time.sleep(2)
 
-
-    # --- PHASE 2: PLAYBACK AT 60 FPS ---
-    
-    # Reset the exact same seeds so the board generates identically
-    random.seed(MASTER_SEED)
-    np.random.seed(MASTER_SEED)
-    # env.env.seed(MASTER_SEED) 
-    
-    env.reset()
+    # --- PHASE 2: PLAYBACK AT HIGH SPEED ---
     clock = pygame.time.Clock()
 
-    for i, action in enumerate(actions_taken):
-        # Allow user to close the window during playback
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                sys.exit()
+    for game_idx, (game_seed, actions_taken) in enumerate(all_games_history):
+        print(
+            f"▶️ Playing Game {game_idx + 1}/{NUM_GAMES} (Length: {len(actions_taken)} steps)"
+        )
 
-        # Draw the screen
+        # Reset the EXACT SAME SEED used during simulation so the random walls match
+        random.seed(game_seed)
+        np.random.seed(game_seed)
+
+        env.reset()
+
+        for action in actions_taken:
+            # Keep the UI responsive so you can close the window
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+
+            # Draw the screen
+            env.env.render()
+
+            # Apply the pre-calculated move
+            env.step(action)
+
+            # Control the playback speed
+            clock.tick(PLAYBACK_FPS)
+
+        # Draw the final crash frame
         env.env.render()
-        
-        # Apply the pre-calculated move
-        env.step(action)
 
-        # Force the game to run at exactly 60 Frames Per Second!
-        clock.tick(15)
+        # Pause for 1 second between games so you can see how it died
+        time.sleep(1)
 
-    # Draw the final crash frame
-    env.env.render()
-    print("💀 Crash! End of playback.")
-    
-    # Keep the window open for a few seconds so you can see the final board
-    time.sleep(3)
+    print("\n🏁 All replays finished.")
     pygame.quit()
 
 

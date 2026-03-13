@@ -6,8 +6,9 @@ import sys
 import re
 
 # --- CONFIGURATION ---
-REPLAY_FOLDER = "replays/test"
-FPS = 1  # Playback speed
+REPLAY_FOLDER = "replays/muzero-tron-run-v10"
+PLAYBACK_FPS = 20 # Speed of the Tron snake (Frames per second)
+UI_FPS = 60  # Speed of the window (Keeps keyboard inputs instant!)
 CELL_SIZE = 30  # Visual size of the grid squares
 
 # Matched exactly to your TronEnv
@@ -38,8 +39,6 @@ def draw_state(screen, state):
 
             # Channel 1: Trail/Body
             elif state[y, x, 1] == 1.0:
-                # Because the wrapper adds the head to body_positions,
-                # we need to check if it's ALSO the head channel to color it yellow instead of blue
                 if state[y, x, 0] == 1.0:
                     pygame.draw.rect(screen, COLORS["head"], rect)
                 else:
@@ -49,7 +48,7 @@ def draw_state(screen, state):
             elif state[y, x, 0] == 1.0:
                 pygame.draw.rect(screen, COLORS["head"], rect)
 
-    # Draw grid lines for that authentic Tron feel
+    # Draw grid lines
     for x in range(0, grid_w * CELL_SIZE, CELL_SIZE):
         pygame.draw.line(
             screen, COLORS["grid_line"], (x, 0), (x, grid_h * CELL_SIZE), 1
@@ -63,7 +62,7 @@ def draw_state(screen, state):
 
 
 def play_replay(file_path, screen, clock):
-    print(f"\n▶️ Playing: {os.path.basename(file_path)}")
+    print(f"\n▶️ Ready: {os.path.basename(file_path)} (Press SPACE to start)")
     try:
         states = np.load(file_path, allow_pickle=True)
     except Exception as e:
@@ -72,40 +71,64 @@ def play_replay(file_path, screen, clock):
 
     frame_idx = 0
     num_frames = len(states)
-    paused = False
+    paused = True
+    pygame.event.clear()
+
+    time_accumulator = 0.0
+    time_per_frame = 1000.0 / PLAYBACK_FPS
+
+    # --- THE COMPASS HACK ---
+    # Grab the walls (Channel 2) from Frame 0. This is our absolute "True North" reference.
+    frame0_walls = states[0][:, :, 2]
 
     while frame_idx < num_frames:
+        dt = clock.tick(UI_FPS)
+
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 return False
 
-            if event.type == pygame.KEYDOWN:
+            if event.type == pygame.KEYUP:
                 if event.key == pygame.K_q or event.key == pygame.K_ESCAPE:
                     return False
                 elif event.key == pygame.K_n:
-                    return True  # Skip to Next
+                    return True
                 elif event.key == pygame.K_SPACE:
                     paused = not paused
 
-                # Frame-by-frame analysis
-                if paused:
-                    if event.key == pygame.K_RIGHT:
-                        frame_idx = min(frame_idx + 1, num_frames - 1)
-                    elif event.key == pygame.K_LEFT:
-                        frame_idx = max(frame_idx - 1, 0)
+            if event.type == pygame.KEYDOWN and paused:
+                if event.key == pygame.K_RIGHT:
+                    frame_idx = min(frame_idx + 1, num_frames - 1)
+                elif event.key == pygame.K_LEFT:
+                    frame_idx = max(frame_idx - 1, 0)
 
-        draw_state(screen, states[frame_idx])
+        # --- UN-ROTATE THE FRAME ---
+        current_frame = states[frame_idx]
+        current_walls = current_frame[:, :, 2]
+
+        # Test all 4 possible rotations to find which one aligns the walls with Frame 0
+        best_k = 0
+        for k in range(4):
+            if np.array_equal(np.rot90(current_walls, k=k, axes=(0, 1)), frame0_walls):
+                best_k = k
+                break
+
+        # Apply the correcting rotation to the entire 3-channel frame
+        static_frame = np.rot90(current_frame, k=best_k, axes=(0, 1))
+
+        # Draw the un-rotated frame!
+        draw_state(screen, static_frame)
 
         if not paused:
-            frame_idx += 1
-            clock.tick(FPS)
+            time_accumulator += dt
+            if time_accumulator >= time_per_frame:
+                frame_idx += 1
+                time_accumulator = 0.0
 
-            if frame_idx == num_frames:
-                print(
-                    "💀 Game Over. Press 'N' for next, or 'Space' to restart this one."
-                )
-                paused = True
-                frame_idx -= 1
+                if frame_idx >= num_frames:
+                    print("💀 Game Over. Press 'N' for next, or 'SPACE' to review.")
+                    paused = True
+                    frame_idx = num_frames - 1
 
     return True
 
@@ -115,7 +138,6 @@ def main():
 
     replay_files = glob.glob(os.path.join(REPLAY_FOLDER, "*.npy"))
 
-    # Sort files by generation number properly (gen_2 before gen_10)
     def sort_key(f):
         match = re.search(r"gen_(\d+)", f)
         return int(match.group(1)) if match else 0
@@ -126,14 +148,13 @@ def main():
         print(f"❌ No .npy files found in '{REPLAY_FOLDER}' folder.")
         sys.exit()
 
-    # Dynamically size the window based on the shape of the first replay array
     sample_states = np.load(replay_files[0], allow_pickle=True)
     grid_h, grid_w, _ = sample_states[0].shape
     screen = pygame.display.set_mode((grid_w * CELL_SIZE, grid_h * CELL_SIZE))
-    pygame.display.set_caption("Tron AI Brain Viewer (Ego-Centric)")
+    pygame.display.set_caption("Tron AI Brain Viewer")
     clock = pygame.time.Clock()
 
-    print(f"Found {len(replay_files)} replays. Starting playback...")
+    print(f"Found {len(replay_files)} replays.")
     print("\n🎮 CONTROLS:")
     print(" - SPACE: Pause / Play")
     print(" - LEFT/RIGHT ARROWS: Step backward/forward (while paused)")

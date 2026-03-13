@@ -24,13 +24,13 @@ print("🚨 JAX IS USING:", jax.devices())
 NUM_GENERATIONS = 10000
 TARGET_STEPS_PER_GENERATION = 1000
 TRAINING_STEPS_PER_GENERATION = 100
-NUM_SIMULATIONS = 100
+NUM_SIMULATIONS = 128
 LEARNING_RATE = 0.0002
 BATCH_SIZE = 256
 UNROLL_STEPS = 6
 SAVE_PARAMS = True
 TD_STEPS = 100
-RUN_NAME = "muzero-tron-run-v10"
+RUN_NAME = "muzero-tron-run-vMessi"
 
 
 # ================ Load Params Function ================
@@ -48,7 +48,9 @@ def load_params(params, path):
 
 # ================ Run training loop ================
 def main(save_params=SAVE_PARAMS, load_checkpoint=True):
-    wandb.init(project="muzero-tron", id=RUN_NAME, resume="allow")
+    wandb.init(
+        project="muzero-tron", id=RUN_NAME, resume="must", config={"run_name": RUN_NAME}
+    )
     wandb.config.update(
         {
             "num_generations": NUM_GENERATIONS,
