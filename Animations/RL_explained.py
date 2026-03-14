@@ -1,10 +1,11 @@
 from manim import *
+from config import BACKGROUND_COLOR
 
 
 class RL_Explained(Scene):
 
     def construct(self):
-        self.camera.background_color = "#0A0B0D"
+        self.camera.background_color = BACKGROUND_COLOR
 
         self.show_intro_title()
         self.show_rl_loop()
@@ -22,18 +23,24 @@ class RL_Explained(Scene):
         self.play(FadeOut(text))
 
     def show_rl_loop(self):
-        # Environment ------------------------->
-        env_box = Rectangle(width=3, height=2, color=RED, corner_radius=0.2).shift(RIGHT * 3)
+        env_box = RoundedRectangle(
+            width=3, height=2, color=RED, corner_radius=0.2
+        ).shift(RIGHT * 3)
         env_label = Text("Environment", font_size=24).move_to(env_box)
 
-        # Agent ------------------------->
-        agent_box = Rectangle(width=3, height=2, color=GREEN, corner_radius=0.2).shift(LEFT * 3)
+        agent_box = RoundedRectangle(
+            width=3, height=2, color=GREEN, corner_radius=0.2
+        ).shift(LEFT * 3)
 
-        image = ImageMobject("resources/agent.png").scale(0.2)
+        phantom_box = Square(side_length=0.8)
+        phantom_box.set_stroke(opacity=0)
+        phantom_box.set_fill(opacity=0)
+
         agent_text = Text("Agent", font_size=24)
-
-        agent_group = Group(image, agent_text).arrange(RIGHT, buff=0.2)
+        agent_group = Group(phantom_box, agent_text).arrange(RIGHT, buff=0.5)
         agent_group.move_to(agent_box.get_center())
+
+        self.add(agent_group)
 
         self.play(Create(agent_box), FadeIn(agent_group))
         self.wait(8)

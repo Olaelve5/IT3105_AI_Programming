@@ -1,87 +1,185 @@
 from manim import *
+from config import BACKGROUND_COLOR
 
 
 class ModelTypes(Scene):
     def construct(self):
-        self.camera.background_color = "#192023"
-
+        self.camera.background_color = BACKGROUND_COLOR
         self.show_big_title()
         self.show_model_types()
 
     def show_big_title(self):
         title = Text(
-            "Model Types in Reinforcement Learning",
-            font_size=48,
+            "Model-Free vs. Model-Based",
+            font_size=44,
             weight=BOLD,
-            color=WHITE,
+            t2c={"Model-Free": ORANGE, "Model-Based": BLUE},
         )
-
-        subtitle = MarkupText(
-            f'Model-Free <span fgcolor="{WHITE}">vs.</span> <span fgcolor="{BLUE}">Model-Based</span>',
-            color=ORANGE,
-            font_size=32,
-            weight=BOLD,
-        ).next_to(title, DOWN, buff=0.5)
-
-        self.play(Write(title, run_time=1))
+        self.play(Write(title))
         self.wait(2)
-        self.play(Write(subtitle, run_time=1))
-        self.wait(4)
-        self.play(FadeOut(title), FadeOut(subtitle))
+        self.play(FadeOut(title))
 
     def show_model_types(self):
-        # Left Side: Model-Free
-        free_title = Text("Model-Free Methods", font_size=32, weight=BOLD, color=ORANGE)
-        free_p1 = Text("Learns purely from trial and error", font_size=24)
-        free_p2 = Text("No planning or simulation of future states", font_size=24)
-        free_p3 = Text("Requires a lot of interactions, often millions", font_size=24)
-        free_p4 = Text("Examples: Q-learning, DQN, PPO", font_size=24)
-        jellyfish_image = ImageMobject("resources/jellyfish.png").scale(0.12)
+        line = Line(start=UP * 4, end=DOWN * 4, color=GRAY, stroke_opacity=0.5)
 
-        left_group = Group(
-            free_title, free_p1, free_p2, free_p3, free_p4, jellyfish_image
-        ).arrange(DOWN, buff=0.6)
-        left_group.move_to(LEFT * 3.5).to_edge(UP, buff=0.5)
-
-        # Right Side: Model-Based
-        based_title = Text("Model-Based Methods", font_size=32, weight=BOLD, color=BLUE)
-        based_p1 = Text("Figures out the rules of the environment", font_size=24)
-        based_p2 = Text("Simulates and plans for future states", font_size=24)
-        based_p3 = Text("Learns from fewer interactions", font_size=24)
-        based_p4 = MarkupText(
-            f"Examples: AlphaZero, Dyna-Q, <span fgcolor='{RED}'>MuZero</span>",
-            font_size=24,
+        # --- TOP TEXT ---
+        free_header = (
+            VGroup(
+                Text("Model-Free", font_size=32, color=ORANGE, weight=BOLD),
+                Text(
+                    "Decides purely based on past experience",
+                    font_size=20,
+                    color=GRAY_B,
+                ),
+            )
+            .arrange(DOWN, buff=0.2)
+            .move_to(LEFT * 3.5 + UP * 2.8)
         )
-        carlsen_image = ImageMobject("resources/Carlsen.png").scale(0.5)
 
-        right_group = Group(
-            based_title, based_p1, based_p2, based_p3, based_p4, carlsen_image
-        ).arrange(DOWN, buff=0.6)
-        right_group.move_to(RIGHT * 3.5).to_edge(UP, buff=0.5)
+        based_header = (
+            VGroup(
+                Text("Model-Based", font_size=32, color=BLUE, weight=BOLD),
+                Text("Decides based on future  planning", font_size=20, color=GRAY_B),
+            )
+            .arrange(DOWN, buff=0.2)
+            .move_to(RIGHT * 3.5 + UP * 2.8)
+        )
 
-        # Divider
-        line = Line(start=UP * 4, end=DOWN * 4, color=WHITE)
+        self.play(Create(line), FadeIn(free_header), FadeIn(based_header))
 
-        # Animations
-        self.play(Write(free_title), Write(based_title), Create(line))
-        self.wait(2)
-        self.play(Write(free_p1))
-        self.wait(2)
-        self.play(Write(based_p1))
-        self.wait(2)
-        self.play(Write(free_p2))
-        self.wait(2)
-        self.play(Write(based_p2))
-        self.wait(2)
-        self.play(Write(free_p3))
-        self.wait(2)
-        self.play(Write(based_p3))
-        self.wait(4)
-        self.play(Write(free_p4))
-        self.wait(2)
-        self.play(Write(based_p4))
-        self.wait(2)
-        jellyfish_image.shift(DOWN * 0.5)
-        self.play(FadeIn(jellyfish_image))
-        self.play(FadeIn(carlsen_image))
-        self.wait(4)
+        # --- 1. MODEL-FREE: VERTICAL FLOW ---
+        mf_center = LEFT * 3.5 + UP * 1.2
+
+        state_mf = Text("Environment State", font_size=20).move_to(mf_center)
+
+        exp_box = RoundedRectangle(
+            width=3.5, height=1.5, color=ORANGE, corner_radius=0.1, fill_opacity=0.3
+        )
+        exp_text = Text("Past Experiences", font_size=20).move_to(exp_box)
+        exp_group = VGroup(exp_box, exp_text).next_to(state_mf, DOWN, buff=0.8)
+
+        action_mf = Text("Action", font_size=20, color=ORANGE, weight=BOLD).next_to(
+            exp_group, DOWN, buff=1.2
+        )
+
+        arrow_in_mf = Arrow(
+            state_mf.get_bottom(),
+            exp_group.get_top(),
+            color=WHITE,
+            buff=0.1,
+            tip_length=0.15,
+        )
+        arrow_out_mf = Arrow(
+            exp_group.get_bottom(),
+            action_mf.get_top(),
+            color=ORANGE,
+            buff=0.1,
+            tip_length=0.15,
+        )
+
+        # --- 2. MODEL-BASED: VERTICAL FLOW (MCTS) ---
+        mb_center = RIGHT * 3.5 + UP * 1.2
+
+        state_mb = Text("Environment State", font_size=20).move_to(mb_center)
+
+        # Root node of the tree (Z-index 2 keeps it above the lines)
+        root = Dot(
+            state_mb.get_bottom() + DOWN * 0.9, radius=0.1, color=BLUE
+        ).set_z_index(2)
+        arrow_in_mb = Arrow(
+            state_mb.get_bottom(),
+            root.get_top(),
+            color=WHITE,
+            buff=0.1,
+            tip_length=0.15,
+        )
+
+        # Tree Layers (Z-index 2 keeps them above the lines)
+        l1 = VGroup(
+            Dot(root.get_center() + DOWN * 0.8 + LEFT * 0.8, color=BLUE).set_z_index(2),
+            Dot(root.get_center() + DOWN * 0.8 + RIGHT * 0.8, color=BLUE).set_z_index(
+                2
+            ),
+        )
+
+        l2 = VGroup(
+            Dot(l1[0].get_center() + DOWN * 0.8 + LEFT * 0.4, color=BLUE).set_z_index(
+                2
+            ),
+            Dot(l1[0].get_center() + DOWN * 0.8 + RIGHT * 0.4, color=BLUE).set_z_index(
+                2
+            ),
+            Dot(l1[1].get_center() + DOWN * 0.8 + RIGHT * 0.4, color=BLUE).set_z_index(
+                2
+            ),
+        )
+
+        tree_lines = (
+            VGroup(
+                Line(root, l1[0], color=BLUE),
+                Line(root, l1[1], color=BLUE),
+                Line(l1[0], l2[0], color=BLUE),
+                Line(l1[0], l2[1], color=BLUE),
+                Line(l1[1], l2[2], color=BLUE),
+            )
+            .set_stroke(width=2)
+            .set_z_index(1)
+        )
+
+        # --- ANIMATIONS ---
+
+        # Model-Free Animation
+        self.play(FadeIn(state_mf))
+        self.play(GrowArrow(arrow_in_mf))
+        self.play(FadeIn(exp_box), FadeIn(exp_text))
+
+        # "Searching" effect
+        self.play(
+            exp_box.animate.set_fill(ORANGE, opacity=0.3),
+            rate_func=there_and_back,
+            run_time=0.8,
+        )
+
+        self.play(GrowArrow(arrow_out_mf))
+        self.play(FadeIn(action_mf))
+
+        self.wait(1)
+
+        # Model-Based Animation
+        self.play(FadeIn(state_mb))
+        self.play(GrowArrow(arrow_in_mb))
+        self.play(Create(root))
+
+        # Grow tree
+        self.play(Create(tree_lines[0:2]), FadeIn(l1), run_time=1)
+        self.play(Create(tree_lines[2:]), FadeIn(l2), run_time=1)
+
+        # Highlight path (Z-index 1 ensures it stays behind the dots)
+        path = VGroup(
+            Line(root, l1[0], color=WHITE, stroke_width=4),
+            Line(l1[0], l2[1], color=WHITE, stroke_width=4),
+        ).set_z_index(1)
+
+        # Turn target node GREEN and force it strictly to the very front
+        self.play(
+            Create(path), l2[1].animate.set_color(GREEN).scale(1.5).set_z_index(3)
+        )
+
+        # Define Action text and arrow AFTER the dot scales to fix the arrow size bug
+        action_mb = Text("Action", font_size=20, color=GREEN, weight=BOLD).next_to(
+            l2[1], DOWN, buff=0.8
+        )
+
+        arrow_out_mb = Arrow(
+            l2[1].get_bottom(),
+            action_mb.get_top(),
+            color=GREEN,
+            buff=0.1,
+            tip_length=0.15,
+        )
+
+        # Output action from the selected node
+        self.play(GrowArrow(arrow_out_mb))
+        self.play(FadeIn(action_mb))
+
+        self.wait(5)
