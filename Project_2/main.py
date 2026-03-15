@@ -31,7 +31,7 @@ UNROLL_STEPS = 6
 SAVE_PARAMS = True
 TD_STEPS = 10
 MAX_EPISODE_LENGTH = 2000
-RUN_NAME = "muzero-2048-vTest"
+RUN_NAME = "muzero-2048-v1"
 
 
 # ================ Load Params Function ================
@@ -168,7 +168,7 @@ def main(save_params=SAVE_PARAMS, load_checkpoint=True):
 
         game_manager.params = params
 
-        if (gen + 1 + wandb_starting_gen) % 25 == 0:
+        if (gen + 1 + wandb_starting_gen) % 10 == 0:
             if save_params:
                 os.makedirs("saved_params", exist_ok=True)
                 save_path = (
@@ -188,20 +188,6 @@ def main(save_params=SAVE_PARAMS, load_checkpoint=True):
         if avg_reward > best_avg_reward:
             best_avg_reward = avg_reward
             print(f"🏆 NEW HIGH SCORE! ({best_avg_reward:.2f})")
-
-        # Save some games
-        if gen % 10 == 0 and games_this_generation:
-            best_game = max(games_this_generation, key=lambda g: len(g))
-            states_array_best = np.array(best_game.states)
-            filename_best = f"replays/{RUN_NAME}/gen_{gen + wandb_starting_gen}_score_{len(best_game)}.npy"
-            np.save(filename_best, states_array_best)
-
-            rest_of_games = [g for g in games_this_generation if g != best_game]
-            if rest_of_games:
-                random_game = np.random.choice(rest_of_games)
-                states_array_random = np.array(random_game.states)
-                filename_random = f"replays/{RUN_NAME}/gen_{gen + wandb_starting_gen}_score_{len(random_game)}.npy"
-                np.save(filename_random, states_array_random)
 
     print("\nTraining complete!")
 
