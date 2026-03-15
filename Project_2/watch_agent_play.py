@@ -103,7 +103,7 @@ def watch_game(human_control=False, debug=False):
         root = MCTSNode(prior=1.0)
         root.game_state = abstract_state
 
-        mcts.run(root, num_simulations=100, inject_noise=False)
+        mcts.run(root, num_simulations=128, inject_noise=False)
         policy, value = mcts.extract_mcts_data(root, NUM_ACTIONS)
 
         probs = np.asarray(policy, dtype=np.float32)

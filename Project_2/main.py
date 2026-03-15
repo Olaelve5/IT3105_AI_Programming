@@ -25,7 +25,7 @@ NUM_GENERATIONS = 10000
 TARGET_STEPS_PER_GENERATION = 1000
 TRAINING_STEPS_PER_GENERATION = 100
 NUM_SIMULATIONS = 128
-LEARNING_RATE = 0.0002
+LEARNING_RATE = 0.0001
 BATCH_SIZE = 256
 UNROLL_STEPS = 6
 SAVE_PARAMS = True
@@ -85,11 +85,11 @@ def main(save_params=SAVE_PARAMS, load_checkpoint=True):
             print("⚠️  No checkpoints found. Starting training from scratch.")
 
     # Optimizer
-    lr_schedule = optax.cosine_decay_schedule(
-        init_value=LEARNING_RATE, decay_steps=20000, alpha=0.05
-    )
+    # lr_schedule = optax.cosine_decay_schedule(
+    #     init_value=LEARNING_RATE, decay_steps=20000, alpha=0.05
+    # )
     optimizer = optax.chain(
-        optax.clip_by_global_norm(5.0), optax.adamw(lr_schedule, weight_decay=1e-4)
+        optax.clip_by_global_norm(5.0), optax.adamw(LEARNING_RATE, weight_decay=1e-4)
     )
     opt_state = optimizer.init(params)
 
@@ -202,16 +202,14 @@ def main(save_params=SAVE_PARAMS, load_checkpoint=True):
         if gen % 10 == 0 and games_this_generation:
             best_game = max(games_this_generation, key=lambda g: len(g))
             states_array_best = np.array(best_game.states)
-            filename_best = f"replays/{RUN_NAME}/gen_{gen}_score_{len(best_game)}.npy"
+            filename_best = f"replays/{RUN_NAME}/gen_{gen + wandb_starting_gen}_score_{len(best_game)}.npy"
             np.save(filename_best, states_array_best)
 
             rest_of_games = [g for g in games_this_generation if g != best_game]
             if rest_of_games:
                 random_game = np.random.choice(rest_of_games)
                 states_array_random = np.array(random_game.states)
-                filename_random = (
-                    f"replays/{RUN_NAME}/gen_{gen}_score_{len(random_game)}.npy"
-                )
+                filename_random = f"replays/{RUN_NAME}/gen_{gen + wandb_starting_gen}_score_{len(random_game)}.npy"
                 np.save(filename_random, states_array_random)
 
     print("\nTraining complete!")
