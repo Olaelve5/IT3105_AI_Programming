@@ -22,8 +22,8 @@ print("🚨 JAX IS USING:", jax.devices())
 
 # ================ Hyperparameters ================
 NUM_GENERATIONS = 5000
-TARGET_STEPS_PER_GENERATION = 3000
-TRAINING_STEPS_PER_GENERATION = 300
+TARGET_STEPS_PER_GENERATION = 2200
+TRAINING_STEPS_PER_GENERATION = 220
 NUM_SIMULATIONS = 128
 LEARNING_RATE = 0.002
 BATCH_SIZE = 256
@@ -50,21 +50,10 @@ def load_params(params, path):
 # ================ Run training loop ================
 def main(save_params=SAVE_PARAMS, load_checkpoint=True):
     wandb.init(
-        project="muzero-2048", id=RUN_NAME, resume="allow", config={"run_name": RUN_NAME}
-    )
-    wandb.config.update(
-        {
-            "num_generations": NUM_GENERATIONS,
-            "target_steps_per_generation": TARGET_STEPS_PER_GENERATION,
-            "training_steps_per_generation": TRAINING_STEPS_PER_GENERATION,
-            "num_simulations": NUM_SIMULATIONS,
-            "learning_rate": LEARNING_RATE,
-            "batch_size": BATCH_SIZE,
-            "unroll_steps": UNROLL_STEPS,
-            "td_steps": TD_STEPS,
-            "num_channels": 32,
-            "num_res_blocks": 2,
-        }
+        project="muzero-2048",
+        id=RUN_NAME,
+        resume="allow",
+        config={"run_name": RUN_NAME},
     )
     wandb_starting_gen = 0
 
@@ -196,10 +185,9 @@ def main(save_params=SAVE_PARAMS, load_checkpoint=True):
         else:
             avg_reward = -float("inf")
 
-        # Save the best model based on average reward
         if avg_reward > best_avg_reward:
-            print(f"🏆 NEW HIGH SCORE! ({best_avg_reward:.2f})")
             best_avg_reward = avg_reward
+            print(f"🏆 NEW HIGH SCORE! ({best_avg_reward:.2f})")
 
         # Save some games
         if gen % 10 == 0 and games_this_generation:
