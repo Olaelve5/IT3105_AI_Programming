@@ -3,8 +3,8 @@ from functools import partial
 from replay_buffer import Game, ReplayBuffer
 import numpy as np
 from mcts_node import MCTSNode
-from tron.tron_env import TronEnv
-from tron.env_wrapper import TronEnvWrapper
+from Game2048.env_wrapper import EnvWrapper
+from Game2048.env import Game2048Env
 from umcts import UMCTS
 import jax.numpy as jnp
 import jax
@@ -20,20 +20,18 @@ class GameManager:
     def __init__(self, model, params, mcts_num_simulations):
         self.replay_buffer = ReplayBuffer()
         self.model = model
-        self.env = TronEnvWrapper(TronEnv())
+        self.env = EnvWrapper(Game2048Env())
         self.params = params
         self.num_actions = NUM_ACTIONS
         self.mcts = UMCTS(model, params)
         self.mcts_num_simulations = mcts_num_simulations
 
-        self.decay_rate = 0.98
+        self.decay_rate = 0.995
 
     def play_single_episode(self, max_episode_length):
         """
         Simulates one episode and stores it in the replay buffer.
         """
-
-        # Ensure MCTS has the latest parameters
         self.mcts.params = self.params
 
         total_entropy = 0.0
@@ -93,11 +91,18 @@ class GameManager:
 
         self.replay_buffer.save_game(game)
 
-        num_50s = steps_taken // 50
-        flames = "🔥" * num_50s
+        max_tile = self.env.env.get_max_tile()
+        base_msg = f"Game finished after {steps_taken} steps | Max tile: {max_tile} | Reward: {total_reward:.2f} | Score: {score}"
 
-        print(
-            f"{flames} Game finished in {steps_taken} | total reward {total_reward:.2f}"
-        )
+        if max_tile >= 2048:
+            print(f"⭐️⭐️⭐️⭐️ {base_msg}! ⭐️⭐️⭐️⭐️")
+        elif max_tile >= 1024:
+            print(f"🔥🔥🔥 {base_msg}! 🔥🔥🔥")
+        elif max_tile >= 512:
+            print(f"🔥🔥 {base_msg}! 🔥🔥")
+        elif max_tile >= 256:
+            print(f"🔥 {base_msg}! 🔥")
+        else:
+            print(f"{base_msg}.")
 
         return total_reward, steps_taken, score, avg_entropy, game

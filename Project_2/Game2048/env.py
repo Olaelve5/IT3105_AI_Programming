@@ -53,7 +53,7 @@ class Game2048Env:
     def step(self, action):
         if not self.can_move():
             self.game_over = True
-            return
+            return False, self.board, 0, True
 
         old_score = self.score
         valid_move = self.handle_action(action)
@@ -150,6 +150,9 @@ class Game2048Env:
                     return True
 
         return False
+
+    def get_max_tile(self):
+        return np.max(self.board)
 
 
 if __name__ == "__main__":

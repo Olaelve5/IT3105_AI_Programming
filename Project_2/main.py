@@ -21,16 +21,17 @@ rng = jax.random.PRNGKey(42)
 print("🚨 JAX IS USING:", jax.devices())
 
 # ================ Hyperparameters ================
-NUM_GENERATIONS = 10000
-TARGET_STEPS_PER_GENERATION = 1000
-TRAINING_STEPS_PER_GENERATION = 100
+NUM_GENERATIONS = 5000
+TARGET_STEPS_PER_GENERATION = 3000
+TRAINING_STEPS_PER_GENERATION = 300
 NUM_SIMULATIONS = 128
-LEARNING_RATE = 0.0001
+LEARNING_RATE = 0.002
 BATCH_SIZE = 256
 UNROLL_STEPS = 6
 SAVE_PARAMS = True
-TD_STEPS = 100
-RUN_NAME = "muzero-tron-run-vMessi"
+TD_STEPS = 10
+MAX_EPISODE_LENGTH = 2000
+RUN_NAME = "muzero-2048-vTest"
 
 
 # ================ Load Params Function ================
@@ -49,7 +50,7 @@ def load_params(params, path):
 # ================ Run training loop ================
 def main(save_params=SAVE_PARAMS, load_checkpoint=True):
     wandb.init(
-        project="muzero-tron", id=RUN_NAME, resume="must", config={"run_name": RUN_NAME}
+        project="muzero-2048", id=RUN_NAME, resume="allow", config={"run_name": RUN_NAME}
     )
     wandb.config.update(
         {
@@ -61,8 +62,8 @@ def main(save_params=SAVE_PARAMS, load_checkpoint=True):
             "batch_size": BATCH_SIZE,
             "unroll_steps": UNROLL_STEPS,
             "td_steps": TD_STEPS,
-            "num_channels": 64,
-            "num_res_blocks": 5,
+            "num_channels": 32,
+            "num_res_blocks": 2,
         }
     )
     wandb_starting_gen = 0
@@ -72,7 +73,7 @@ def main(save_params=SAVE_PARAMS, load_checkpoint=True):
 
     # Model initialization
     model = MuZeroNet(num_actions=NUM_ACTIONS)
-    dummy_obs = jnp.ones((1, BOARD_HEIGHT, BOARD_WIDTH, 3))
+    dummy_obs = jnp.ones((1, BOARD_HEIGHT, BOARD_WIDTH, 16))
     dummy_act = jnp.array([0])
     params = model.init(rng, dummy_obs, dummy_act, method=model.init_params)
 
@@ -86,7 +87,9 @@ def main(save_params=SAVE_PARAMS, load_checkpoint=True):
 
     # Optimizer
     lr_schedule = optax.cosine_decay_schedule(
-        init_value=LEARNING_RATE, decay_steps=20000, alpha=0.05
+        init_value=LEARNING_RATE,
+        decay_steps=400000,
+        alpha=0.01,
     )
     optimizer = optax.chain(
         optax.clip_by_global_norm(5.0), optax.adamw(lr_schedule, weight_decay=1e-4)
@@ -116,7 +119,7 @@ def main(save_params=SAVE_PARAMS, load_checkpoint=True):
             try:
                 total_reward, steps, lines, entropy, game = (
                     game_manager.play_single_episode(
-                        max_episode_length=400,
+                        max_episode_length=MAX_EPISODE_LENGTH,
                     )
                 )
                 results.append((total_reward, steps, lines, entropy))
@@ -216,4 +219,4 @@ def main(save_params=SAVE_PARAMS, load_checkpoint=True):
 
 
 if __name__ == "__main__":
-    main()
+    main(load_checkpoint=False)

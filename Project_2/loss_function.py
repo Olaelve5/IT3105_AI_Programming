@@ -6,7 +6,6 @@ import jax
 def loss_function(params, model: MuZeroNet, batch):
     obs = batch["observations"]
 
-    # Initial Step
     hidden_state, raw_policy_scores, pred_value = model.apply(
         params, obs, method=model.initial_inference
     )

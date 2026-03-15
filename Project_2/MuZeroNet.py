@@ -3,8 +3,8 @@ import jax.numpy as jnp
 import flax.linen as nn
 from config import NUM_ACTIONS
 
-NUM_CHANNELS = 64
-NUM_RES_BLOCKS = 5
+NUM_CHANNELS = 32
+NUM_RES_BLOCKS = 2
 
 
 def min_max_scale(x, tol=1e-5):

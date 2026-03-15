@@ -12,10 +12,11 @@ class EnvWrapper:
     def step(self, action):
         valid_move, step_score, done = self.env.step(action)
 
+        if not valid_move:
+            return self.get_obs(), -1.0, True
+
         if done:
             reward = -1.0
-        elif not valid_move:
-            reward = -0.1
         else:
             reward = np.log2(step_score) if step_score > 0 else 0.0
 

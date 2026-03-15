@@ -40,14 +40,14 @@ class Game:
 
 
 class ReplayBuffer:
-    def __init__(self, capacity=25000):
+    def __init__(self, capacity=8000):
         self.buffer = collections.deque(maxlen=capacity)
         self.total_steps = 0
 
     def save_game(self, game: Game):
         if len(self.buffer) == self.buffer.maxlen:
             self.total_steps -= len(self.buffer[0])
-            
+
         self.buffer.append(game)
         self.total_steps += len(game)
 
@@ -64,7 +64,8 @@ class ReplayBuffer:
         batch_policies = []
         batch_discounts = []
 
-        selected_games = random.choices(self.buffer, k=batch_size)
+        game_lengths = [len(g) for g in self.buffer]
+        selected_games = random.choices(self.buffer, weights=game_lengths, k=batch_size)
 
         for game in selected_games:
             random_pos = random.randint(0, len(game) - 1)
