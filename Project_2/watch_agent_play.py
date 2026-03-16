@@ -110,7 +110,8 @@ def watch_game(step_delay=0.15):
         root = MCTSNode(prior=1.0)
         root.game_state = abstract_state
 
-        mcts.run(root, num_simulations=128, inject_noise=False)
+        valid_actions = env.env.get_valid_actions()
+        mcts.run(root, num_simulations=128, inject_noise=False, valid_actions=valid_actions)
         policy, value = mcts.extract_mcts_data(root, NUM_ACTIONS)
 
         probs = np.asarray(policy, dtype=np.float32)
@@ -127,7 +128,7 @@ def watch_game(step_delay=0.15):
         print(f"👉 Chosen Action: {action} ({action_names[action]})\n")
 
         # Take the step
-        obs, reward, terminated = env.step(action, is_training=True)
+        obs, reward, terminated = env.step(action)
 
         if terminated:
             env.env.render()  # Draw the final death screen

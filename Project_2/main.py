@@ -31,7 +31,7 @@ UNROLL_STEPS = 6
 SAVE_PARAMS = True
 TD_STEPS = 10
 MAX_EPISODE_LENGTH = 2000
-RUN_NAME = "muzero-2048-v8"
+RUN_NAME = "muzero-2048-v10"
 
 
 # ================ Load Params Function ================
@@ -165,7 +165,7 @@ def main(save_params=SAVE_PARAMS, load_checkpoint=True):
 
         game_manager.params = params
 
-        if (gen + 1 + wandb_starting_gen) % 10 == 0:
+        if (gen + 1 + wandb_starting_gen) % 20 == 0:
             if save_params:
                 os.makedirs("saved_params", exist_ok=True)
                 save_path = (

@@ -102,14 +102,12 @@ class GameManager:
         base_msg = f"Game finished after {steps_taken} steps | Max tile: {max_tile} | Reward: {total_reward:.2f} | Score: {score}"
 
         if max_tile >= 2048:
-            print(f"⭐️⭐️⭐️⭐️⭐️ {base_msg}! ⭐️⭐️⭐️⭐️⭐️")
+            print(f"⭐️⭐️⭐️⭐️ {base_msg}! ⭐️⭐️⭐️⭐️")
         elif max_tile >= 1024:
-            print(f"🔥🔥🔥🔥 {base_msg}! 🔥🔥🔥🔥")
-        elif max_tile >= 512:
             print(f"🔥🔥🔥 {base_msg}! 🔥🔥🔥")
-        elif max_tile >= 256:
+        elif max_tile >= 512:
             print(f"🔥🔥 {base_msg}! 🔥🔥")
-        elif max_tile >= 128:
+        elif max_tile >= 256:
             print(f"🔥 {base_msg}! 🔥")
         else:
             print(f"{base_msg}.")
