@@ -50,8 +50,15 @@ class GameManager:
             )
             root_node.game_state = abstract_state
 
+            # Masking at the root node
+            valid_actions = self.env.env.get_valid_actions()
+
             # Run MCTS to populate the search tree and get action probabilities
-            self.mcts.run(root_node, num_simulations=self.mcts_num_simulations)
+            self.mcts.run(
+                root_node,
+                num_simulations=self.mcts_num_simulations,
+                valid_actions=valid_actions,
+            )
             policy_distribution, root_value = self.mcts.extract_mcts_data(
                 root_node, self.num_actions
             )
@@ -95,14 +102,16 @@ class GameManager:
         base_msg = f"Game finished after {steps_taken} steps | Max tile: {max_tile} | Reward: {total_reward:.2f} | Score: {score}"
 
         if max_tile >= 2048:
-            print(f"⭐️⭐️⭐️⭐️ {base_msg}! ⭐️⭐️⭐️⭐️")
+            print(f"⭐️⭐️⭐️⭐️⭐️ {base_msg}! ⭐️⭐️⭐️⭐️⭐️")
         elif max_tile >= 1024:
-            print(f"🔥🔥🔥 {base_msg}! 🔥🔥🔥")
+            print(f"🔥🔥🔥🔥 {base_msg}! 🔥🔥🔥🔥")
         elif max_tile >= 512:
-            print(f"🔥🔥 {base_msg}! 🔥🔥")
+            print(f"🔥🔥🔥 {base_msg}! 🔥🔥🔥")
         elif max_tile >= 256:
+            print(f"🔥🔥 {base_msg}! 🔥🔥")
+        elif max_tile >= 128:
             print(f"🔥 {base_msg}! 🔥")
         else:
             print(f"{base_msg}.")
 
-        return total_reward, steps_taken, score, avg_entropy, game
+        return total_reward, steps_taken, score, avg_entropy, max_tile

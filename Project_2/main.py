@@ -31,7 +31,7 @@ UNROLL_STEPS = 6
 SAVE_PARAMS = True
 TD_STEPS = 10
 MAX_EPISODE_LENGTH = 2000
-RUN_NAME = "muzero-2048-v1"
+RUN_NAME = "muzero-2048-v8"
 
 
 # ================ Load Params Function ================
@@ -56,9 +56,6 @@ def main(save_params=SAVE_PARAMS, load_checkpoint=True):
         config={"run_name": RUN_NAME},
     )
     wandb_starting_gen = 0
-
-    # Folder for replays
-    os.makedirs(f"replays/{RUN_NAME}", exist_ok=True)
 
     # Model initialization
     model = MuZeroNet(num_actions=NUM_ACTIONS)
@@ -98,7 +95,6 @@ def main(save_params=SAVE_PARAMS, load_checkpoint=True):
         print(f"===== Generation {gen + 1 + wandb_starting_gen} =====")
 
         results = []
-        games_this_generation = []
         start_time = time.time()
         steps_gathered = 0
         games_played = 0
@@ -106,13 +102,12 @@ def main(save_params=SAVE_PARAMS, load_checkpoint=True):
         print(f"Gathering ~{TARGET_STEPS_PER_GENERATION} steps of experience...")
         while steps_gathered < TARGET_STEPS_PER_GENERATION:
             try:
-                total_reward, steps, lines, entropy, game = (
+                total_reward, steps, lines, entropy, max_tile = (
                     game_manager.play_single_episode(
                         max_episode_length=MAX_EPISODE_LENGTH,
                     )
                 )
-                results.append((total_reward, steps, lines, entropy))
-                games_this_generation.append(game)
+                results.append((total_reward, steps, lines, entropy, max_tile))
 
                 steps_gathered += steps
                 games_played += 1
@@ -128,10 +123,11 @@ def main(save_params=SAVE_PARAMS, load_checkpoint=True):
             avg_score = sum(r[2] for r in results) / len(results)
             avg_entropy = sum(r[3] for r in results) / len(results)
             max_steps = max(r[1] for r in results)
+            max_tile = max(r[4] for r in results)
 
             print(f"🎮 Played {games_played} games to gather {steps_gathered} steps.")
             print(
-                f"🏆 Average Reward: {avg_reward:.2f} | ⏱️  Average Steps: {avg_steps:.0f} | 👑 Max: {max_steps}"
+                f"🏆 Average Reward: {avg_reward:.2f} | ⏱️  Average Steps: {avg_steps:.0f} | 👑 Max Tile: {max_tile}"
             )
             print(f"⏱️  Generation Time: {generation_end_time - start_time:.2f} seconds")
             wandb.log(
@@ -140,6 +136,7 @@ def main(save_params=SAVE_PARAMS, load_checkpoint=True):
                     "Game/Average_Episode_Length": avg_steps,
                     "Game/Average_Score": avg_score,
                     "MCTS/Average_Entropy": avg_entropy,
+                    "Game/Max_Tile": max_tile,
                 }
             )
 

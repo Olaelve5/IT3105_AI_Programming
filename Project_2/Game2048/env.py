@@ -53,7 +53,7 @@ class Game2048Env:
     def step(self, action):
         if not self.can_move():
             self.game_over = True
-            return False, self.board, 0, True
+            return False, 0, True
 
         old_score = self.score
         valid_move = self.handle_action(action)
@@ -153,6 +153,40 @@ class Game2048Env:
 
     def get_max_tile(self):
         return np.max(self.board)
+
+    def get_valid_actions(self):
+        """
+        Calculates legal 2048 moves. Used for action masking
+        at the root of MCTS (similar to the original MuZero paper)
+        """
+
+        valid_actions = []
+        for action in range(4):
+            rotations = {2: 0, 0: 1, 3: 2, 1: 3}
+            k = rotations[action]
+            rotated = np.rot90(self.board, k=k)
+
+            can_move = False
+            for row in rotated:
+                zero_seen = False
+                for val in row:
+                    if val == 0:
+                        zero_seen = True
+                    elif zero_seen:
+                        can_move = True
+                        break
+
+                non_zeros = [v for v in row if v != 0]
+                for i in range(len(non_zeros) - 1):
+                    if non_zeros[i] == non_zeros[i + 1]:
+                        can_move = True
+                        break
+                if can_move:
+                    break
+
+            if can_move:
+                valid_actions.append(action)
+        return valid_actions
 
 
 if __name__ == "__main__":

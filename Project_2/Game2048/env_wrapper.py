@@ -9,16 +9,17 @@ class EnvWrapper:
         self.env.reset()
         return self.get_obs()
 
-    def step(self, action):
+    def step(self, action, is_training=True):
         valid_move, step_score, done = self.env.step(action)
 
         if not valid_move:
-            return self.get_obs(), -1.0, True
+            if is_training:
+                return self.get_obs(), -1.0, True
+
+        reward = step_score / 2048.0 if step_score > 0 else 0.0
 
         if done:
             reward = -1.0
-        else:
-            reward = np.log2(step_score) if step_score > 0 else 0.0
 
         return self.get_obs(), reward, done
 
