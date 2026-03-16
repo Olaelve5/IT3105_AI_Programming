@@ -21,17 +21,17 @@ rng = jax.random.PRNGKey(42)
 print("🚨 JAX IS USING:", jax.devices())
 
 # ================ Hyperparameters ================
-NUM_GENERATIONS = 5000
-TARGET_STEPS_PER_GENERATION = 2200
-TRAINING_STEPS_PER_GENERATION = 220
+NUM_GENERATIONS = 1000
+TARGET_STEPS_PER_GENERATION = 800
+TRAINING_STEPS_PER_GENERATION = 100
 NUM_SIMULATIONS = 128
 LEARNING_RATE = 0.002
 BATCH_SIZE = 256
-UNROLL_STEPS = 6
+UNROLL_STEPS = 5
 SAVE_PARAMS = True
-TD_STEPS = 10
-MAX_EPISODE_LENGTH = 2000
-RUN_NAME = "muzero-2048-v10"
+TD_STEPS = 42
+MAX_EPISODE_LENGTH = 42
+RUN_NAME = "muzero-connect4-v3"
 
 
 # ================ Load Params Function ================
@@ -50,7 +50,7 @@ def load_params(params, path):
 # ================ Run training loop ================
 def main(save_params=SAVE_PARAMS, load_checkpoint=True):
     wandb.init(
-        project="muzero-2048",
+        project="muzero-connect4",
         id=RUN_NAME,
         resume="allow",
         config={"run_name": RUN_NAME},
@@ -59,7 +59,7 @@ def main(save_params=SAVE_PARAMS, load_checkpoint=True):
 
     # Model initialization
     model = MuZeroNet(num_actions=NUM_ACTIONS)
-    dummy_obs = jnp.ones((1, BOARD_HEIGHT, BOARD_WIDTH, 16))
+    dummy_obs = jnp.ones((1, BOARD_HEIGHT, BOARD_WIDTH, 3))
     dummy_act = jnp.array([0])
     params = model.init(rng, dummy_obs, dummy_act, method=model.init_params)
 
@@ -74,7 +74,7 @@ def main(save_params=SAVE_PARAMS, load_checkpoint=True):
     # Optimizer
     lr_schedule = optax.cosine_decay_schedule(
         init_value=LEARNING_RATE,
-        decay_steps=400000,
+        decay_steps=100000,
         alpha=0.01,
     )
     optimizer = optax.chain(
@@ -86,10 +86,10 @@ def main(save_params=SAVE_PARAMS, load_checkpoint=True):
     game_manager = GameManager(model, params, mcts_num_simulations=NUM_SIMULATIONS)
 
     # Main training loop
-    print("\n========== 🚀 Starting Training ==========")
+    print("\n========== 🚀 Starting Training (Connect-4) ==========")
     print(f"Training for {NUM_GENERATIONS} generations...\n")
 
-    best_avg_reward = -float("inf")
+    best_p1_win_rate = -1.0
 
     for gen in range(NUM_GENERATIONS):
         print(f"===== Generation {gen + 1 + wandb_starting_gen} =====")
@@ -102,12 +102,10 @@ def main(save_params=SAVE_PARAMS, load_checkpoint=True):
         print(f"Gathering ~{TARGET_STEPS_PER_GENERATION} steps of experience...")
         while steps_gathered < TARGET_STEPS_PER_GENERATION:
             try:
-                total_reward, steps, lines, entropy, max_tile = (
-                    game_manager.play_single_episode(
-                        max_episode_length=MAX_EPISODE_LENGTH,
-                    )
+                total_reward, steps, entropy = game_manager.play_single_episode(
+                    max_episode_length=MAX_EPISODE_LENGTH,
                 )
-                results.append((total_reward, steps, lines, entropy, max_tile))
+                results.append((total_reward, steps, entropy))
 
                 steps_gathered += steps
                 games_played += 1
@@ -118,25 +116,31 @@ def main(save_params=SAVE_PARAMS, load_checkpoint=True):
         generation_end_time = time.time()
 
         if results:
-            avg_reward = sum(r[0] for r in results) / len(results)
             avg_steps = sum(r[1] for r in results) / len(results)
-            avg_score = sum(r[2] for r in results) / len(results)
-            avg_entropy = sum(r[3] for r in results) / len(results)
-            max_steps = max(r[1] for r in results)
-            max_tile = max(r[4] for r in results)
+            avg_entropy = sum(r[2] for r in results) / len(results)
+
+            p1_wins = sum(1 for r in results if r[0] == 1.0)
+            p2_wins = sum(1 for r in results if r[0] == -1.0)
+            draws = sum(1 for r in results if r[0] == 0.0)
+
+            p1_win_rate = p1_wins / len(results)
+            p2_win_rate = p2_wins / len(results)
+            draw_rate = draws / len(results)
 
             print(f"🎮 Played {games_played} games to gather {steps_gathered} steps.")
             print(
-                f"🏆 Average Reward: {avg_reward:.2f} | ⏱️  Average Steps: {avg_steps:.0f} | 👑 Max Tile: {max_tile}"
+                f"🏆 P1 Win Rate: {p1_win_rate:.2%} | P2 Win Rate: {p2_win_rate:.2%} | Draws: {draw_rate:.2%}"
             )
+            print(f"⏱️  Avg Steps: {avg_steps:.1f} | 🧠 Entropy: {avg_entropy:.2f}")
             print(f"⏱️  Generation Time: {generation_end_time - start_time:.2f} seconds")
+
             wandb.log(
                 {
-                    "Game/Average_Total_Reward": avg_reward,
+                    "Game/Player1_Win_Rate": p1_win_rate,
+                    "Game/Player2_Win_Rate": p2_win_rate,
+                    "Game/Draw_Rate": draw_rate,
                     "Game/Average_Episode_Length": avg_steps,
-                    "Game/Average_Score": avg_score,
                     "MCTS/Average_Entropy": avg_entropy,
-                    "Game/Max_Tile": max_tile,
                 }
             )
 
@@ -165,7 +169,7 @@ def main(save_params=SAVE_PARAMS, load_checkpoint=True):
 
         game_manager.params = params
 
-        if (gen + 1 + wandb_starting_gen) % 20 == 0:
+        if (gen + 1 + wandb_starting_gen) % 10 == 0:
             if save_params:
                 os.makedirs("saved_params", exist_ok=True)
                 save_path = (
@@ -177,14 +181,9 @@ def main(save_params=SAVE_PARAMS, load_checkpoint=True):
                     f"💾 Saved params after {gen + 1 + wandb_starting_gen} generations -> {save_path}"
                 )
 
-        if results:
-            avg_reward = sum(r[0] for r in results) / len(results)
-        else:
-            avg_reward = -float("inf")
-
-        if avg_reward > best_avg_reward:
-            best_avg_reward = avg_reward
-            print(f"🏆 NEW HIGH SCORE! ({best_avg_reward:.2f})")
+        if p1_win_rate > best_p1_win_rate and gen > 10:
+            best_p1_win_rate = p1_win_rate
+            print(f"📈 NEW HIGH P1 WIN RATE! ({best_p1_win_rate:.2%})")
 
     print("\nTraining complete!")
 

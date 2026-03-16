@@ -68,13 +68,13 @@ class UMCTS:
 
         if inject_noise:
             noise = np.random.dirichlet([0.3] * self.num_actions)
-            
+
             # Zero noise for illegal actions
             if valid_actions is not None and len(valid_actions) > 0:
-                noise = noise * mask 
+                noise = noise * mask
                 if np.sum(noise) > 0:
                     noise = noise / np.sum(noise)
-                    
+
             action_probs = 0.75 * action_probs + 0.25 * noise
 
         for i in range(self.num_actions):
@@ -82,7 +82,13 @@ class UMCTS:
 
         return predicted_value
 
-    def run(self, root_node: MCTSNode, num_simulations=50, inject_noise=True, valid_actions=None):
+    def run(
+        self,
+        root_node: MCTSNode,
+        num_simulations=50,
+        inject_noise=True,
+        valid_actions=None,
+    ):
         """
         Runs the full algorithm.
         """
@@ -185,17 +191,17 @@ class UMCTS:
     def backpropagate(self, search_path, value, min_max: MinMaxStats):
         """
         Walks the search path in reversed order, updating stats for each node.
+        The value is flipped for the parent because it is a two-player game.
         """
-
         current_value = value
 
         for node in reversed(search_path):
-            current_value = node.reward + (node.discount * current_value)
-            node.visit_count += 1
             node.value_sum += current_value
-
-            # Update stats so we can normalize the values
+            node.visit_count += 1
             min_max.update(node.value())
+
+            # Flip the reward for the opponent's turn and apply discount
+            current_value = node.reward + (node.discount * -current_value)
 
     def extract_mcts_data(self, root_node, num_actions):
         root_value = root_node.value()

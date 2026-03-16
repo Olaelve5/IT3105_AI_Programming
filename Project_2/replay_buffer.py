@@ -5,7 +5,7 @@ from config import NUM_ACTIONS
 
 
 class Game:
-    def __init__(self, discount=0.997):
+    def __init__(self, discount=1.0):
         self.states = []
         self.actions = []
         self.rewards = []
@@ -20,19 +20,26 @@ class Game:
         self.child_visits.append(child_visits)
         self.root_values.append(root_value)
 
-    def compute_target_value(self, index, n_steps=30):
+    def compute_target_value(self, index, n_steps=42):
+        """
+        Computes the value of a state
+        - looks all the way til then end of the game for connect 4 (42 steps)
+        """
         value = 0.0
         for i in range(n_steps):
             step = index + i
             if step < len(self.rewards):
-                value += (self.discount**i) * self.rewards[step]
+                value += (self.discount**i) * self.rewards[step] * ((-1) ** i)
             else:
                 return value
 
         bootstrap_idx = index + n_steps
         if bootstrap_idx < len(self.root_values):
-            value += (self.discount**n_steps) * self.root_values[bootstrap_idx]
-
+            value += (
+                (self.discount**n_steps)
+                * self.root_values[bootstrap_idx]
+                * ((-1) ** n_steps)
+            )
         return value
 
     def __len__(self):
@@ -40,7 +47,7 @@ class Game:
 
 
 class ReplayBuffer:
-    def __init__(self, capacity=8000):
+    def __init__(self, capacity=2000):
         self.buffer = collections.deque(maxlen=capacity)
         self.total_steps = 0
 
@@ -64,6 +71,7 @@ class ReplayBuffer:
         batch_policies = []
         batch_discounts = []
 
+        # higher weights for longher games to ensure balanced sampling across different game lengths
         game_lengths = [len(g) for g in self.buffer]
         selected_games = random.choices(self.buffer, weights=game_lengths, k=batch_size)
 
@@ -85,7 +93,7 @@ class ReplayBuffer:
                 else:
                     discounts.append(0.0)
 
-            # Padding
+            # padding
             while len(actions) < unroll_steps:
                 actions.append(0)
                 rewards.append(0.0)
