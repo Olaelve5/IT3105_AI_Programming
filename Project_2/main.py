@@ -31,7 +31,7 @@ UNROLL_STEPS = 6
 SAVE_PARAMS = True
 TD_STEPS = 10
 MAX_EPISODE_LENGTH = 2000
-RUN_NAME = "muzero-2048-v10"
+RUN_NAME = "muzero-2048-v12"
 
 
 # ================ Load Params Function ================

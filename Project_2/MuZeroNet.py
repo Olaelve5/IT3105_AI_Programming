@@ -3,14 +3,8 @@ import jax.numpy as jnp
 import flax.linen as nn
 from config import NUM_ACTIONS
 
-NUM_CHANNELS = 32
-NUM_RES_BLOCKS = 2
-
-
-def min_max_scale(x, tol=1e-5):
-    max_val = jnp.max(x, axis=(1, 2, 3), keepdims=True)
-    min_val = jnp.min(x, axis=(1, 2, 3), keepdims=True)
-    return (x - min_val) / (max_val - min_val + tol)
+NUM_CHANNELS = 128
+NUM_RES_BLOCKS = 8
 
 
 class ResBlock(nn.Module):
@@ -37,7 +31,7 @@ class RepresentationNet(nn.Module):
         for _ in range(NUM_RES_BLOCKS):
             x = ResBlock(NUM_CHANNELS)(x)
 
-        return min_max_scale(x)
+        return jax.nn.sigmoid(x)
 
 
 class DynamicsNet(nn.Module):
@@ -63,7 +57,7 @@ class DynamicsNet(nn.Module):
         for _ in range(NUM_RES_BLOCKS):
             x = ResBlock(NUM_CHANNELS)(x)
 
-        next_state = min_max_scale(x)
+        next_state = jax.nn.sigmoid(x)
         batch_size = next_state.shape[0]
 
         rd_conv = nn.Conv(features=2, kernel_size=(1, 1))(next_state)

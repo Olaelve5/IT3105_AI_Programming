@@ -150,4 +150,4 @@ def watch_game(step_delay=0.15):
 
 
 if __name__ == "__main__":
-    watch_game(step_delay=0.05)
+    watch_game(step_delay=0.25)
