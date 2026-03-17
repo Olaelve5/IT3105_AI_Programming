@@ -27,8 +27,8 @@ def load_params(params_struct, path):
         return flax.serialization.from_bytes(params_struct, f.read())
 
 
-def get_ai_move(env_wrapper, mcts_agent, model, num_simulations=128):
-    """Runs the MCTS to find the absolutely best move."""
+def get_ai_move(env_wrapper, mcts_agent, model, num_simulations=100, temperature=0.0):
+    """Runs the MCTS to find the next move."""
     obs = env_wrapper.get_obs()
     state_jnp = jnp.array([obs])
     abstract_state = representation_inference_fn(mcts_agent.params, model, state_jnp)
@@ -44,9 +44,24 @@ def get_ai_move(env_wrapper, mcts_agent, model, num_simulations=128):
         valid_actions=valid_actions,
     )
 
-    policy_distribution, _ = mcts_agent.extract_mcts_data(root_node, NUM_ACTIONS)
+    policy_distribution, root_value = mcts_agent.extract_mcts_data(root_node, NUM_ACTIONS)
 
-    return int(np.argmax(policy_distribution))
+    if temperature == 0.0:
+        action = int(np.argmax(policy_distribution))
+    else:
+        probs = np.array(policy_distribution)
+        if np.sum(probs) > 0:
+            probs = np.power(probs, 1.0 / temperature)
+            probs /= np.sum(probs)
+            action = int(np.random.choice(NUM_ACTIONS, p=probs))
+        else:
+            action = int(np.random.choice(valid_actions))
+
+    valid_actions = env_wrapper.env.get_valid_actions()
+    print(f"Valid actions: {valid_actions}")
+    print(f"Action: {action}, Policy: {policy_distribution}, Value: {root_value:.4f}")
+
+    return action
 
 
 def main():
@@ -63,8 +78,8 @@ def main():
     rng = jax.random.PRNGKey(0)
     base_params = model.init(rng, dummy_obs, dummy_act, method=model.init_params)
 
-    PATH_A = "saved_params/1_generations.msgpack"
-    PATH_B = "saved_params/1_generations.msgpack"
+    PATH_A = "saved_params/10_generations.msgpack"
+    PATH_B = "saved_params/70_generations.msgpack"
 
     is_p1_human = False
     is_p2_human = False
@@ -94,6 +109,7 @@ def main():
     running = True
     done = False
     win_msg = ""
+    step_count = 0
 
     while running:
         current_player = raw_env.current_player
@@ -112,6 +128,7 @@ def main():
                     raw_env.render()
                     done = False
                     win_msg = ""
+                    step_count = 0
                     continue
 
             # human clicking logic
@@ -132,14 +149,18 @@ def main():
 
         # AI logic
         if not is_human_turn and not done and running:
-            pygame.time.delay(300)
+            pygame.time.delay(100)
 
-            print(f"🤔 AI (Player {current_player}) is thinking...")
             current_mcts = mcts_p1 if current_player == 1 else mcts_p2
 
-            action = get_ai_move(env, current_mcts, model)
+            current_temp = 1.0 if step_count < 4 else 0.0
+
+            action = get_ai_move(
+                env, current_mcts, model, num_simulations=100, temperature=current_temp
+            )
 
             _, reward, done = env.step(action, is_training=False)
+            step_count += 1
             raw_env.render()
 
             if done:

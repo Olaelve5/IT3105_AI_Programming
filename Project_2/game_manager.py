@@ -26,7 +26,7 @@ class GameManager:
         self.mcts = UMCTS(model, params)
         self.mcts_num_simulations = mcts_num_simulations
 
-        self.decay_rate = 0.85
+        self.decay_rate = 0.95
 
     def play_single_episode(self, max_episode_length):
         self.mcts.params = self.params

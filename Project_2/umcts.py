@@ -78,7 +78,8 @@ class UMCTS:
             action_probs = 0.75 * action_probs + 0.25 * noise
 
         for i in range(self.num_actions):
-            root_node.children[i] = MCTSNode(action_probs[i])
+            if action_probs[i] > 0:
+                root_node.children[i] = MCTSNode(action_probs[i])
 
         return predicted_value
 
@@ -180,9 +181,11 @@ class UMCTS:
         # P(s, a) -> probability of choosing this action
         prior_score = explo_rate * child.prior * parent_sqrt / (child_visits + 1)
 
-        # Q(s, a) -> the value of this child node
+        # Q(s, a) -> the value of this child node from the parent's perspective
         if child_visits > 0:
-            value_score = min_max.normalize(child.value())
+            # Invert child's value because it's the opponent's turn 
+            q_value = child.reward + (child.discount * -child.value())
+            value_score = min_max.normalize(q_value)
         else:
             value_score = parent_value
 

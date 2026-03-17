@@ -24,14 +24,14 @@ print("🚨 JAX IS USING:", jax.devices())
 NUM_GENERATIONS = 1000
 TARGET_STEPS_PER_GENERATION = 800
 TRAINING_STEPS_PER_GENERATION = 100
-NUM_SIMULATIONS = 128
-LEARNING_RATE = 0.002
-BATCH_SIZE = 256
+NUM_SIMULATIONS = 100
+LEARNING_RATE = 0.0005
+BATCH_SIZE = 128
 UNROLL_STEPS = 5
 SAVE_PARAMS = True
 TD_STEPS = 42
 MAX_EPISODE_LENGTH = 42
-RUN_NAME = "muzero-connect4-v3"
+RUN_NAME = "muzero-connect4-v6"
 
 
 # ================ Load Params Function ================
@@ -75,7 +75,7 @@ def main(save_params=SAVE_PARAMS, load_checkpoint=True):
     lr_schedule = optax.cosine_decay_schedule(
         init_value=LEARNING_RATE,
         decay_steps=100000,
-        alpha=0.01,
+        alpha=0.1, 
     )
     optimizer = optax.chain(
         optax.clip_by_global_norm(5.0), optax.adamw(lr_schedule, weight_decay=1e-4)
