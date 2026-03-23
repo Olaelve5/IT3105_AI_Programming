@@ -134,7 +134,7 @@ class UMCTS:
         parent_value = min_max.normalize(node.value()) if parent_visits > 0 else 0.0
 
         for action, child in node.children.items():
-            score = self.ucb_score(
+            score = self.ucb(
                 child, min_max, explo_rate, parent_sqrt, parent_value
             )
 
@@ -145,7 +145,7 @@ class UMCTS:
 
         return best_action, best_child
 
-    def ucb_score(
+    def ucb(
         self,
         child: MCTSNode,
         min_max: MinMaxStats,
