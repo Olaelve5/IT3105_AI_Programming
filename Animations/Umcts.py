@@ -407,7 +407,7 @@ class UMCTS_explained(Scene):
         )
 
         eval_text1 = (
-            Text("Prediction Net evaluates S1:", font_size=18)
+            Text("Prediction Net. evaluates S1:", font_size=18)
             .next_to(phase3_title, DOWN, buff=0.6)
             .align_to(phase3_title, LEFT)
         )
@@ -586,7 +586,7 @@ class UMCTS_explained(Scene):
         )
 
         val_text = (
-            Text("Dynamics Net -> S2\nPrediction Net -> v: +0.10", font_size=18)
+            Text("Dynamics Net. -> S2\nPrediction Net. -> v: +0.10", font_size=18)
             .next_to(eval_title, DOWN, buff=0.6)
             .align_to(eval_title, LEFT)
         )
@@ -712,7 +712,7 @@ class UMCTS_explained(Scene):
             .align_to(final_title, LEFT)
         )
         rule_text2 = (
-            Text("We DO NOT pick the highest Q-value.", font_size=18, color=RED)
+            Text("We do not pick the highest Q-value.", font_size=18, color=RED)
             .next_to(rule_text1, DOWN, buff=0.2)
             .align_to(final_title, LEFT)
         )
