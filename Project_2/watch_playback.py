@@ -17,7 +17,7 @@ from tron.env_wrapper import TronEnvWrapper
 from config import NUM_ACTIONS, BOARD_WIDTH, BOARD_HEIGHT
 
 # --- CONFIGURATION ---
-PARAMS_FOLDER = "saved_params"
+PARAMS_FOLDER = "saved_params_messi"
 NUM_GAMES = 10  # How many games to pre-calculate
 PLAYBACK_FPS = 20  # Speed of the playback highlight reel
 STARTING_SEED = 42  # Base seed to ensure reproducibility
@@ -94,8 +94,8 @@ def precalculate_and_playback():
         random.seed(game_seed)
         np.random.seed(game_seed)
 
-        mcts = UMCTS(model, params) 
-        
+        mcts = UMCTS(model, params)
+
         game_state = env.reset()
         terminated = False
         step_count = 0
@@ -117,9 +117,9 @@ def precalculate_and_playback():
             policy, _ = mcts.extract_mcts_data(root, NUM_ACTIONS)
 
             probs = np.asarray(policy, dtype=np.float32)
-            #action = int(np.argmax(probs))
+            # action = int(np.argmax(probs))
             action = np.random.choice(NUM_ACTIONS, p=probs)
-            
+
             actions_taken.append(action)
             game_state, _, terminated = env.step(action)
 
@@ -132,7 +132,14 @@ def precalculate_and_playback():
     time.sleep(2)
 
     # --- PHASE 2: PLAYBACK AT HIGH SPEED ---
+    import cv2  # Import OpenCV for video writing
+
     clock = pygame.time.Clock()
+
+    # --- NEW: Video Recording Setup ---
+    video_filename = "tron_highlight_reel.mp4"
+    fourcc = cv2.VideoWriter_fourcc(*"mp4v")  # Codec for MP4
+    video_writer = None
 
     for game_idx, (game_seed, actions_taken) in enumerate(all_games_history):
         print(
@@ -142,18 +149,38 @@ def precalculate_and_playback():
         # Reset the EXACT SAME SEED used during simulation so the random walls match
         random.seed(game_seed)
         np.random.seed(game_seed)
-
         env.reset()
 
         for action in actions_taken:
             # Keep the UI responsive so you can close the window
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
+                    if video_writer:
+                        video_writer.release()  # Save video before quitting
                     pygame.quit()
                     sys.exit()
 
             # Draw the screen
             env.env.render()
+
+            # --- NEW: Capture Frame for Video ---
+            screen = pygame.display.get_surface()
+            if screen is not None:
+                # 1. Grab pixels from Pygame
+                frame = pygame.surfarray.array3d(screen)
+                # 2. Pygame format is (Width, Height, RGB), OpenCV expects (Height, Width, BGR)
+                frame = np.transpose(frame, (1, 0, 2))
+                frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+
+                # Initialize writer on the very first frame once we know the actual window size
+                if video_writer is None:
+                    height, width, _ = frame.shape
+                    video_writer = cv2.VideoWriter(
+                        video_filename, fourcc, PLAYBACK_FPS, (width, height)
+                    )
+
+                # Write the frame to the MP4
+                video_writer.write(frame)
 
             # Apply the pre-calculated move
             env.step(action)
@@ -164,10 +191,27 @@ def precalculate_and_playback():
         # Draw the final crash frame
         env.env.render()
 
-        # Pause for 1 second between games so you can see how it died
+        # --- NEW: Record the "pause" for the video ---
+        # time.sleep() pauses real time, but doesn't add frames to the video.
+        # We need to write the final frame multiple times so the pause exists in the MP4.
+        screen = pygame.display.get_surface()
+        if screen is not None and video_writer is not None:
+            frame = pygame.surfarray.array3d(screen)
+            frame = np.transpose(frame, (1, 0, 2))
+            frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+
+            # Write this frame repeatedly for 1 second's worth of frames
+            for _ in range(PLAYBACK_FPS):
+                video_writer.write(frame)
+
+        # Pause the live UI for 1 second between games so you can see how it died
         time.sleep(1)
 
-    print("\n🏁 All replays finished.")
+    # --- NEW: Final Cleanup ---
+    if video_writer is not None:
+        video_writer.release()
+
+    print(f"\n🏁 All replays finished. Video saved as: {video_filename}")
     pygame.quit()
 
 

@@ -22,7 +22,7 @@ print("🚨 JAX IS USING:", jax.devices())
 
 # ================ Hyperparameters ================
 NUM_GENERATIONS = 10000
-TARGET_STEPS_PER_GENERATION = 1000
+TARGET_STEPS_PER_GENERATION = 100
 TRAINING_STEPS_PER_GENERATION = 100
 NUM_SIMULATIONS = 128
 LEARNING_RATE = 0.0001
@@ -30,7 +30,7 @@ BATCH_SIZE = 256
 UNROLL_STEPS = 6
 SAVE_PARAMS = True
 TD_STEPS = 100
-RUN_NAME = "muzero-tron-run-vMessi"
+RUN_NAME = "muzero-tron-run-vMessissss"
 
 
 # ================ Load Params Function ================
@@ -49,7 +49,7 @@ def load_params(params, path):
 # ================ Run training loop ================
 def main(save_params=SAVE_PARAMS, load_checkpoint=True):
     wandb.init(
-        project="muzero-tron", id=RUN_NAME, resume="must", config={"run_name": RUN_NAME}
+        project="muzero-tron", id=RUN_NAME, config={"run_name": RUN_NAME}
     )
     wandb.config.update(
         {
@@ -176,7 +176,7 @@ def main(save_params=SAVE_PARAMS, load_checkpoint=True):
 
         game_manager.params = params
 
-        if (gen + 1 + wandb_starting_gen) % 25 == 0:
+        if (gen + 1 + wandb_starting_gen) % 25 == 0 or gen == 0:
             if save_params:
                 os.makedirs("saved_params", exist_ok=True)
                 save_path = (

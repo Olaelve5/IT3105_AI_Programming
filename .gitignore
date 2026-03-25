@@ -7,3 +7,4 @@ wandb/
 media/
 replays/
 *.slurm
+*.mp4
