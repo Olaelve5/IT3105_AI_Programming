@@ -78,7 +78,7 @@ class GameManager:
                 state=game_state,
                 action=action,
                 reward=reward,
-                child_visits=policy_distribution,
+                mcts_policy=policy_distribution,
                 root_value=root_value,
             )
 

@@ -9,15 +9,15 @@ class Game:
         self.states = []
         self.actions = []
         self.rewards = []
-        self.child_visits = []
+        self.mcts_policy = []
         self.root_values = []
         self.discount = discount
 
-    def store_step(self, state, action, reward, child_visits, root_value):
+    def store_step(self, state, action, reward, mcts_policy, root_value):
         self.states.append(state)
         self.actions.append(action)
         self.rewards.append(reward)
-        self.child_visits.append(child_visits)
+        self.mcts_policy.append(mcts_policy)
         self.root_values.append(root_value)
 
     def compute_target_value(self, index, n_steps=30):
@@ -47,7 +47,7 @@ class ReplayBuffer:
     def save_game(self, game: Game):
         if len(self.buffer) == self.buffer.maxlen:
             self.total_steps -= len(self.buffer[0])
-            
+
         self.buffer.append(game)
         self.total_steps += len(game)
 
@@ -72,7 +72,7 @@ class ReplayBuffer:
 
             actions = game.actions[random_pos : random_pos + unroll_steps]
             rewards = game.rewards[random_pos : random_pos + unroll_steps]
-            policies = game.child_visits[random_pos : random_pos + unroll_steps + 1]
+            policies = game.mcts_policy[random_pos : random_pos + unroll_steps + 1]
 
             discounts = []
             for t in range(unroll_steps):
