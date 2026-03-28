@@ -453,7 +453,7 @@ class UMCTS_explained(Scene):
             .align_to(backprop_text, LEFT)
         )
         math_2 = (
-            Text("a1 Q: 0.00 + (0.99 * 0.80) = 0.79", font_size=18)
+            Text("a1 Q: 0.00 + (0.99 * 0.80) / 1 visits = 0.79", font_size=18)
             .next_to(math_1, DOWN, buff=0.2)
             .align_to(math_1, LEFT)
         )
@@ -664,7 +664,11 @@ class UMCTS_explained(Scene):
 
         # Helper to create 3 vertical dots to show the tree continuing
         def create_vdots(node_group):
-            return VGroup(*[Dot(radius=0.04, color=GRAY) for _ in range(3)]).arrange(DOWN, buff=0.1).next_to(node_group[0], DOWN, buff=0.2)
+            return (
+                VGroup(*[Dot(radius=0.04, color=GRAY) for _ in range(3)])
+                .arrange(DOWN, buff=0.1)
+                .next_to(node_group[0], DOWN, buff=0.2)
+            )
 
         vdots1 = create_vdots(self.a1_child1_group)
         vdots2 = create_vdots(self.a1_child2_group)
