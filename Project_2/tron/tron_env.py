@@ -67,8 +67,16 @@ class TronEnv:
     def check_collision(self, pos):
         if pos in self.body_positions:
             return True
-        if not (0 <= pos[0] < self.width and 0 <= pos[1] < self.height):
+
+        min_bound = self.grid_size
+        max_x_bound = self.width - self.grid_size
+        max_y_bound = self.height - self.grid_size
+
+        if not (
+            min_bound <= pos[0] < max_x_bound and min_bound <= pos[1] < max_y_bound
+        ):
             return True
+
         if pos in self.walls:
             return True
         return False
@@ -88,11 +96,25 @@ class TronEnv:
         self.draw_header(padding_top)
         self.draw_board(padding_top)
 
+        # Game Over Overlay
+        if self.game_over:
+            overlay = pygame.Surface((self.width, self.height))
+            overlay.set_alpha(100)
+            overlay.fill((255, 0, 0))
+            self.screen.blit(overlay, (0, padding_top))
+
+            font = pygame.font.SysFont("monospace", 40, bold=True)
+            crash_text = font.render("Game Over!", True, (255, 255, 255))
+            text_rect = crash_text.get_rect(
+                center=(self.width // 2, padding_top + (self.height // 2))
+            )
+            self.screen.blit(crash_text, text_rect)
+
         pygame.display.flip()
-        self.clock.tick(20)
+        self.clock.tick(10)
 
     def draw_header(self, padding_top):
-        header_color = (255, 255, 255)
+        header_color = (138, 255, 222)
         pygame.draw.rect(self.screen, header_color, (0, 0, self.width, padding_top))
 
         font = pygame.font.SysFont("monospace", 24, bold=True)
@@ -101,30 +123,76 @@ class TronEnv:
         self.screen.blit(score_text, text_rect)
 
     def draw_board(self, padding_top):
-        for pos in self.body_positions[:-1]:
+        # Body and head (different colors if crashed)
+        if self.game_over:
+            fatal_head_index = -2
+            for pos in self.body_positions[:fatal_head_index]:
+                pygame.draw.rect(
+                    self.screen,
+                    BODY_COLOR,
+                    (pos[0], pos[1] + padding_top, self.grid_size, self.grid_size),
+                )
+
+            last_safe_pos = self.body_positions[fatal_head_index]
             pygame.draw.rect(
                 self.screen,
-                BODY_COLOR,
-                (pos[0], pos[1] + padding_top, self.grid_size, self.grid_size),
+                (255, 50, 50),
+                (
+                    last_safe_pos[0],
+                    last_safe_pos[1] + padding_top,
+                    self.grid_size,
+                    self.grid_size,
+                ),
             )
 
-        pygame.draw.rect(
-            self.screen,
-            HEAD_COLOR,
-            (
-                self.head_pos[0],
-                self.head_pos[1] + padding_top,
-                self.grid_size,
-                self.grid_size,
-            ),
-        )
+        else:
+            for pos in self.body_positions[:-1]:
+                pygame.draw.rect(
+                    self.screen,
+                    BODY_COLOR,
+                    (pos[0], pos[1] + padding_top, self.grid_size, self.grid_size),
+                )
 
+            pygame.draw.rect(
+                self.screen,
+                HEAD_COLOR,
+                (
+                    self.head_pos[0],
+                    self.head_pos[1] + padding_top,
+                    self.grid_size,
+                    self.grid_size,
+                ),
+            )
+
+        # Walls
         for wall in self.walls:
             pygame.draw.rect(
                 self.screen,
                 WALL_COLOR,
                 (wall[0], wall[1] + padding_top, self.grid_size, self.grid_size),
             )
+
+        # draw outside walls
+        pygame.draw.rect(
+            self.screen,
+            WALL_COLOR,
+            (0, padding_top, self.width, self.grid_size),
+        )
+        pygame.draw.rect(
+            self.screen,
+            WALL_COLOR,
+            (0, padding_top + self.height - self.grid_size, self.width, self.grid_size),
+        )
+        pygame.draw.rect(
+            self.screen,
+            WALL_COLOR,
+            (0, padding_top, self.grid_size, self.height),
+        )
+        pygame.draw.rect(
+            self.screen,
+            WALL_COLOR,
+            (self.width - self.grid_size, padding_top, self.grid_size, self.height),
+        )
 
         for x in range(0, self.width + 1, self.grid_size):
             pygame.draw.line(

@@ -5,19 +5,19 @@ from config import NUM_ACTIONS
 
 
 class Game:
-    def __init__(self, discount=0.99):
+    def __init__(self, discount=0.997):
         self.states = []
         self.actions = []
         self.rewards = []
-        self.child_visits = []
+        self.mcts_policy = []
         self.root_values = []
         self.discount = discount
 
-    def store_step(self, state, action, reward, child_visits, root_value):
+    def store_step(self, state, action, reward, mcts_policy, root_value):
         self.states.append(state)
         self.actions.append(action)
         self.rewards.append(reward)
-        self.child_visits.append(child_visits)
+        self.mcts_policy.append(mcts_policy)
         self.root_values.append(root_value)
 
     def compute_target_value(self, index, n_steps=30):
@@ -40,20 +40,22 @@ class Game:
 
 
 class ReplayBuffer:
-    def __init__(self, capacity=3000):
+    def __init__(self, capacity=25000):
         self.buffer = collections.deque(maxlen=capacity)
         self.total_steps = 0
 
     def save_game(self, game: Game):
         if len(self.buffer) == self.buffer.maxlen:
             self.total_steps -= len(self.buffer[0])
-            
+
         self.buffer.append(game)
         self.total_steps += len(game)
 
     def sample_batch(
         self, batch_size, td_steps=30, unroll_steps=5, num_actions=NUM_ACTIONS
     ):
+        """Samples a batch of training data from the replay buffer."""
+
         if not self.buffer:
             return None
 
@@ -64,14 +66,15 @@ class ReplayBuffer:
         batch_policies = []
         batch_discounts = []
 
-        for _ in range(batch_size):
-            game = random.choice(self.buffer)
+        selected_games = random.choices(self.buffer, k=batch_size)
+
+        for game in selected_games:
             random_pos = random.randint(0, len(game) - 1)
             batch_obs.append(game.states[random_pos])
 
             actions = game.actions[random_pos : random_pos + unroll_steps]
             rewards = game.rewards[random_pos : random_pos + unroll_steps]
-            policies = game.child_visits[random_pos : random_pos + unroll_steps + 1]
+            policies = game.mcts_policy[random_pos : random_pos + unroll_steps + 1]
 
             discounts = []
             for t in range(unroll_steps):

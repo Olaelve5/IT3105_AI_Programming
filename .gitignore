@@ -5,4 +5,7 @@ saved_params copy/
 .env
 wandb/
 media/
+replays/
 *.slurm
+*.mp4
+*.zip

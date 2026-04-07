@@ -7,6 +7,8 @@ import wandb
 
 @partial(jax.jit, static_argnums=(0, 2))
 def train_step(model, params, optimizer, opt_state, batch):
+    """Single training step."""
+
     grad_fn = jax.value_and_grad(loss_function, has_aux=True)
     (loss_value, metrics), grads = grad_fn(params, model, batch)
 
@@ -27,6 +29,8 @@ def perform_training_steps(
     td_steps,
     game_manager,
 ):
+    """Performs a series of training steps."""
+
     print(f"🏋️‍♀️ Training for {num_training_steps} steps...")
     accumulated_metrics = {
         "total": 0.0,
@@ -40,7 +44,7 @@ def perform_training_steps(
     # Training loop: sample data -> calculate loss -> update params
     for _ in range(num_training_steps):
         batch = game_manager.replay_buffer.sample_batch(
-            batch_size, td_steps, unroll_steps
+            batch_size=batch_size, td_steps=td_steps, unroll_steps=unroll_steps
         )
 
         if batch is None:

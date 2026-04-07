@@ -10,27 +10,29 @@ from train import perform_training_steps
 import optax
 import flax.serialization
 import os
+from utils.lates_checkpoint import find_latest_checkpoint
 from config import NUM_ACTIONS, BOARD_WIDTH, BOARD_HEIGHT
 import wandb
 import time
 import sys
+import numpy as np
 
 rng = jax.random.PRNGKey(42)
+print("🚨 JAX IS USING:", jax.devices())
 
 # ================ Hyperparameters ================
-NUM_GENERATIONS = 5000
-GAMES_PER_GENERATION = 30
-TARGET_STEPS_PER_GENERATION = 400
+NUM_GENERATIONS = 10000
+TARGET_STEPS_PER_GENERATION = 100
 TRAINING_STEPS_PER_GENERATION = 100
-NUM_SIMULATIONS = 75
-LEARNING_RATE = 0.0002
-BATCH_SIZE = 32
-UNROLL_STEPS = 8
+NUM_SIMULATIONS = 100
+LEARNING_RATE = 0.0001
+BATCH_SIZE = 256
+UNROLL_STEPS = 6
 SAVE_PARAMS = True
 TD_STEPS = 100
+RUN_NAME = "muzero-tron-run-vMessi"
 
 
-# ================ Load Params Function ================
 def load_params(params, path):
     if os.path.exists(path):
         with open(path, "rb") as f:
@@ -43,24 +45,44 @@ def load_params(params, path):
     return params
 
 
-# ================ Run training loop ================
-def main(save_params=SAVE_PARAMS, load_params_path=None):
-    # wandb.init(project="muzero-tron", id="9cggxne5", resume="must")
-    wandb.init(project="muzero-tron")
+def main(save_params=SAVE_PARAMS, load_checkpoint=True):
+    wandb.init(project="muzero-tron", id=RUN_NAME, config={"run_name": RUN_NAME})
+    wandb.config.update(
+        {
+            "num_generations": NUM_GENERATIONS,
+            "target_steps_per_generation": TARGET_STEPS_PER_GENERATION,
+            "training_steps_per_generation": TRAINING_STEPS_PER_GENERATION,
+            "num_simulations": NUM_SIMULATIONS,
+            "learning_rate": LEARNING_RATE,
+            "batch_size": BATCH_SIZE,
+            "unroll_steps": UNROLL_STEPS,
+            "td_steps": TD_STEPS,
+            "num_channels": 64,
+            "num_res_blocks": 5,
+        }
+    )
     wandb_starting_gen = 0
 
     # Model initialization
     model = MuZeroNet(num_actions=NUM_ACTIONS)
-    dummy_obs = jnp.ones((1, BOARD_HEIGHT, BOARD_WIDTH, 5))
+    dummy_obs = jnp.ones((1, BOARD_HEIGHT, BOARD_WIDTH, 3))
     dummy_act = jnp.array([0])
     params = model.init(rng, dummy_obs, dummy_act, method=model.init_params)
 
-    if load_params_path:
-        params = load_params(params, load_params_path)
+    if load_checkpoint:
+        checkpoint, gen_number = find_latest_checkpoint()
+        if checkpoint:
+            params = load_params(params, checkpoint)
+            wandb_starting_gen = gen_number
+        else:
+            print("⚠️  No checkpoints found. Starting training from scratch.")
 
     # Optimizer
+    lr_schedule = optax.cosine_decay_schedule(
+        init_value=LEARNING_RATE, decay_steps=20000, alpha=0.05
+    )
     optimizer = optax.chain(
-        optax.clip_by_global_norm(5.0), optax.adamw(LEARNING_RATE, weight_decay=1e-4)
+        optax.clip_by_global_norm(5.0), optax.adamw(lr_schedule, weight_decay=1e-4)
     )
     opt_state = optimizer.init(params)
 
@@ -77,6 +99,7 @@ def main(save_params=SAVE_PARAMS, load_params_path=None):
         print(f"===== Generation {gen + 1 + wandb_starting_gen} =====")
 
         results = []
+        games_this_generation = []
         start_time = time.time()
         steps_gathered = 0
         games_played = 0
@@ -84,10 +107,13 @@ def main(save_params=SAVE_PARAMS, load_params_path=None):
         print(f"Gathering ~{TARGET_STEPS_PER_GENERATION} steps of experience...")
         while steps_gathered < TARGET_STEPS_PER_GENERATION:
             try:
-                total_reward, steps, lines, entropy = game_manager.play_single_episode(
-                    max_episode_length=400,
+                total_reward, steps, lines, entropy, game = (
+                    game_manager.play_single_episode(
+                        max_episode_length=400,
+                    )
                 )
                 results.append((total_reward, steps, lines, entropy))
+                games_this_generation.append(game)
 
                 steps_gathered += steps
                 games_played += 1
@@ -115,8 +141,7 @@ def main(save_params=SAVE_PARAMS, load_params_path=None):
                     "Game/Average_Episode_Length": avg_steps,
                     "Game/Average_Score": avg_score,
                     "MCTS/Average_Entropy": avg_entropy,
-                },
-                step=gen + wandb_starting_gen,
+                }
             )
 
         # Scale training steps to available data (avoid overfitting small buffers)
@@ -144,7 +169,7 @@ def main(save_params=SAVE_PARAMS, load_params_path=None):
 
         game_manager.params = params
 
-        if (gen + 1 + wandb_starting_gen) % 25 == 0:
+        if (gen + 1 + wandb_starting_gen) % 25 == 0 or gen == 0:
             if save_params:
                 os.makedirs("saved_params", exist_ok=True)
                 save_path = (
@@ -161,17 +186,9 @@ def main(save_params=SAVE_PARAMS, load_params_path=None):
         else:
             avg_reward = -float("inf")
 
-        # Save the best model based on average reward
         if avg_reward > best_avg_reward:
+            print(f"🏆 NEW HIGH SCORE! ({best_avg_reward:.2f})")
             best_avg_reward = avg_reward
-            if save_params:
-                os.makedirs("saved_params", exist_ok=True)
-                best_save_path = "saved_params/best_model.msgpack"
-                with open(best_save_path, "wb") as f:
-                    f.write(flax.serialization.to_bytes(params))
-                print(
-                    f"🏆 NEW HIGH SCORE! ({best_avg_reward:.2f}) Saved best brain -> {best_save_path}"
-                )
 
     print("\nTraining complete!")
 

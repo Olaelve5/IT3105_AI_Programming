@@ -21,10 +21,11 @@ class TronEnvWrapper:
 
     def get_obs(self):
         """Translates the screen into a multi-channel matrix for the Neural Network."""
+
         grid_w = self.env.width // self.env.grid_size
         grid_h = self.env.height // self.env.grid_size
 
-        obs = np.zeros((grid_h, grid_w, 5), dtype=np.float32)
+        obs = np.zeros((grid_h, grid_w, 3), dtype=np.float32)
 
         # Channel 0: Head
         head_x = int(self.env.head_pos[0] // self.env.grid_size)
@@ -54,19 +55,19 @@ class TronEnvWrapper:
 
         dx, dy = self.env.direction
 
-        # Pygame coords: Up=(0, -1), Right=(1, 0), Down=(0, 1), Left=(-1, 0)
+        # Find rotation based on direction
         if dx == 0 and dy == -1:
-            k = 0  # Facing UP (No rotation)
+            k = 0
         elif dx == 1 and dy == 0:
-            k = 1  # Facing RIGHT (Rotate 90 deg counter-clockwise to face UP)
+            k = 1
         elif dx == 0 and dy == 1:
-            k = 2  # Facing DOWN (Rotate 180 deg)
+            k = 2
         elif dx == -1 and dy == 0:
-            k = 3  # Facing LEFT (Rotate 270 deg counter-clockwise)
+            k = 3
         else:
             k = 0
 
-        # Rotate the X and Y axes of the observation matrix
+        # Rotate board
         obs = np.rot90(obs, k=k, axes=(0, 1))
 
         return obs

@@ -25,7 +25,6 @@ class GameManager:
         self.num_actions = NUM_ACTIONS
         self.mcts = UMCTS(model, params)
         self.mcts_num_simulations = mcts_num_simulations
-
         self.decay_rate = 0.98
 
     def play_single_episode(self, max_episode_length):
@@ -33,7 +32,6 @@ class GameManager:
         Simulates one episode and stores it in the replay buffer.
         """
 
-        # Ensure MCTS has the latest parameters
         self.mcts.params = self.params
 
         total_entropy = 0.0
@@ -44,7 +42,6 @@ class GameManager:
         done = False
 
         while not done and steps_taken < max_episode_length:
-            # Initialize the root node of the MCTS
             root_node = MCTSNode(prior=1.0)
             state_jnp = jnp.array([game_state])
             abstract_state = representation_inference_fn(
@@ -58,12 +55,13 @@ class GameManager:
                 root_node, self.num_actions
             )
 
-            # Calculate the entropy of the policy distribution for this step and accumulate it
+            # Calculate the entropy (need this for wandb logging)
             step_entropy = -sum(p * math.log(p + 1e-8) for p in policy_distribution)
             total_entropy += step_entropy
 
             # Exploration decays over time
             exploration_rate = max(0.05, 1.0 * (self.decay_rate**steps_taken))
+
             adjusted_probs = np.power(policy_distribution, 1.0 / exploration_rate)
             adjusted_probs /= np.sum(adjusted_probs)
             action = np.random.choice(self.num_actions, p=adjusted_probs)
@@ -73,16 +71,14 @@ class GameManager:
             if terminated:
                 done = True
 
-            # Store the step in the game history
             game.store_step(
                 state=game_state,
                 action=action,
                 reward=reward,
-                child_visits=policy_distribution,
+                mcts_policy=policy_distribution,
                 root_value=root_value,
             )
 
-            # Move to the next state
             game_state = next_state
             steps_taken += 1
 
@@ -100,4 +96,4 @@ class GameManager:
             f"{flames} Game finished in {steps_taken} | total reward {total_reward:.2f}"
         )
 
-        return total_reward, steps_taken, score, avg_entropy
+        return total_reward, steps_taken, score, avg_entropy, game
