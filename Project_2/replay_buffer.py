@@ -54,6 +54,8 @@ class ReplayBuffer:
     def sample_batch(
         self, batch_size, td_steps=30, unroll_steps=5, num_actions=NUM_ACTIONS
     ):
+        """Samples a batch of training data from the replay buffer."""
+
         if not self.buffer:
             return None
 

@@ -6,17 +6,14 @@ import jax.numpy as jnp
 import flax.serialization
 import numpy as np
 import pygame
-import cv2  # --- NEW: Import OpenCV ---
+import cv2
 from MuZeroNet import MuZeroNet
 from umcts import UMCTS
 from mcts_node import MCTSNode
-
-# Import your Tron files
 from tron.tron_env import TronEnv
 from tron.env_wrapper import TronEnvWrapper
 from config import NUM_ACTIONS, BOARD_WIDTH, BOARD_HEIGHT
 
-# Update this path to where your Tron params are saved
 PARAMS_FOLDER = "saved_params_messi"
 
 
@@ -67,11 +64,8 @@ def load_params(model, filepath):
 def watch_game(human_control=False, debug=False):
     filepath = list_available_params()
 
-    # Pass num_actions to the network
     model = MuZeroNet(num_actions=NUM_ACTIONS)
     params = load_params(model, filepath)
-
-    # Initialize Tron wrapper
     env = TronEnvWrapper(TronEnv())
     mcts = UMCTS(model, params)
 
@@ -79,14 +73,13 @@ def watch_game(human_control=False, debug=False):
         lambda p, s: model.apply(p, s, method=model.representation)
     )
 
-    # Wrapper reset returns only the observation matrix
     game_state = env.reset()
     done = False
     step_count = 0
 
-    # --- NEW: Video Recording Setup ---
+    # Settings for video recording
     video_filename = "tron_messi_gameplay.mp4"
-    fps = 20  # Assuming you want a similar framerate to the last script
+    fps = 20
     fourcc = cv2.VideoWriter_fourcc(*"mp4v")
     video_writer = None
 
@@ -95,10 +88,9 @@ def watch_game(human_control=False, debug=False):
     while not done:
         step_count += 1
 
-        # Render the underlying Tron game
         env.env.render()
 
-        # --- NEW: Capture Frame for Video ---
+        # Capture the current frame for video recording
         screen = pygame.display.get_surface()
         if screen is not None:
             frame = pygame.surfarray.array3d(screen)
@@ -115,14 +107,12 @@ def watch_game(human_control=False, debug=False):
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                # --- NEW: Safely save video on exit ---
                 if video_writer is not None:
                     video_writer.release()
                     print(f"\n💾 Video saved successfully to {video_filename}")
                 pygame.quit()
                 sys.exit()
 
-        # Run MCTS
         state_jnp = jnp.array([game_state])
         abstract_state = representation_fn(params, state_jnp)
 
@@ -142,19 +132,17 @@ def watch_game(human_control=False, debug=False):
 
         print(f"Step {step_count} | Action: {action}")
 
-        # Wrapper returns (obs, reward, terminated)
         game_state, _, terminated = env.step(action)
 
         if terminated:
             print(f"💀 Game Over — survived {step_count} steps.")
 
-            # --- NEW: Record the "pause" so viewers can see the crash ---
             if screen is not None and video_writer is not None:
-                env.env.render()  # Render final frame
+                env.env.render()
                 frame = pygame.surfarray.array3d(screen)
                 frame = np.transpose(frame, (1, 0, 2))
                 frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-                for _ in range(fps):  # Write 1 second worth of crash frames
+                for _ in range(fps):
                     video_writer.write(frame)
 
             game_state = env.reset()
@@ -162,16 +150,12 @@ def watch_game(human_control=False, debug=False):
             time.sleep(1)
 
         if human_control:
-            # Wait for user input to proceed to the next step
             input("Press Enter to continue...")
 
-    # Fallback cleanup (though the script usually exits via the QUIT event above)
     if video_writer is not None:
         video_writer.release()
     pygame.quit()
 
 
 if __name__ == "__main__":
-    watch_game(
-        human_control=False, debug=False
-    )  # Turned debug off so the console isn't spammed while recording
+    watch_game(human_control=False, debug=False)

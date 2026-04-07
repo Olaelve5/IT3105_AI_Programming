@@ -4,6 +4,8 @@ import jax
 
 
 def loss_function(params, model: MuZeroNet, batch):
+    """Calculates the combined loss for a single sample of training data."""
+
     obs = batch["observations"]
 
     # Initial Step
@@ -16,11 +18,9 @@ def loss_function(params, model: MuZeroNet, batch):
 
     action_probs = jax.nn.log_softmax(raw_policy_scores, axis=-1)
 
-    # Calculate initial losses using SUM (not mean)
     policy_loss = -jnp.sum(target_policy * action_probs, axis=-1)
     value_loss = 0.25 * ((pred_value.squeeze(-1) - target_value) ** 2)
 
-    # Initialize accumulators using SUMS
     total_loss = jnp.sum(policy_loss + value_loss)
     total_policy_loss = jnp.sum(policy_loss)
     total_value_loss = jnp.sum(value_loss)
@@ -29,7 +29,7 @@ def loss_function(params, model: MuZeroNet, batch):
 
     unroll_steps = batch["target_policies"].shape[1]
 
-    # Recurrent Steps
+    # Unrolled steps
     for i in range(1, unroll_steps):
         action = batch["actions"][:, i - 1]
         hidden_state = hidden_state * 0.75 + jax.lax.stop_gradient(hidden_state) * 0.25
@@ -43,7 +43,6 @@ def loss_function(params, model: MuZeroNet, batch):
         target_policy = batch["target_policies"][:, i]
         target_value = batch["target_values"][:, i]
 
-        # Calculate step losses using SUM (not mean)
         reward_loss = (pred_reward.squeeze(-1) - target_reward) ** 2
         discount_loss = (pred_discount.squeeze(-1) - target_discount) ** 2
 
@@ -55,7 +54,6 @@ def loss_function(params, model: MuZeroNet, batch):
         mask = target_discount
         masked_loss = reward_loss + discount_loss + (future_loss * mask)
 
-        # Accumulate sums
         total_loss += jnp.sum(masked_loss)
         total_reward_loss += jnp.sum(reward_loss * target_discount)
         total_discount_loss += jnp.sum(discount_loss * target_discount)
@@ -64,7 +62,6 @@ def loss_function(params, model: MuZeroNet, batch):
 
     scale = batch["observations"].shape[0] * (unroll_steps + 1)
 
-    # Create the dictionary of auxiliary metrics
     metrics = {
         "total": total_loss / scale,
         "policy": total_policy_loss / scale,
@@ -73,5 +70,4 @@ def loss_function(params, model: MuZeroNet, batch):
         "discount": total_discount_loss / scale,
     }
 
-    # metrics is for logging
     return total_loss / scale, metrics

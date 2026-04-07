@@ -30,10 +30,9 @@ BATCH_SIZE = 256
 UNROLL_STEPS = 6
 SAVE_PARAMS = True
 TD_STEPS = 100
-RUN_NAME = "muzero-tron-run-vMessissss"
+RUN_NAME = "muzero-tron-run-vMessi"
 
 
-# ================ Load Params Function ================
 def load_params(params, path):
     if os.path.exists(path):
         with open(path, "rb") as f:
@@ -46,11 +45,8 @@ def load_params(params, path):
     return params
 
 
-# ================ Run training loop ================
 def main(save_params=SAVE_PARAMS, load_checkpoint=True):
-    wandb.init(
-        project="muzero-tron", id=RUN_NAME, config={"run_name": RUN_NAME}
-    )
+    wandb.init(project="muzero-tron", id=RUN_NAME, config={"run_name": RUN_NAME})
     wandb.config.update(
         {
             "num_generations": NUM_GENERATIONS,
@@ -66,9 +62,6 @@ def main(save_params=SAVE_PARAMS, load_checkpoint=True):
         }
     )
     wandb_starting_gen = 0
-
-    # Folder for replays
-    os.makedirs(f"replays/{RUN_NAME}", exist_ok=True)
 
     # Model initialization
     model = MuZeroNet(num_actions=NUM_ACTIONS)
@@ -193,24 +186,9 @@ def main(save_params=SAVE_PARAMS, load_checkpoint=True):
         else:
             avg_reward = -float("inf")
 
-        # Save the best model based on average reward
         if avg_reward > best_avg_reward:
             print(f"🏆 NEW HIGH SCORE! ({best_avg_reward:.2f})")
             best_avg_reward = avg_reward
-
-        # Save some games
-        if gen % 10 == 0 and games_this_generation:
-            best_game = max(games_this_generation, key=lambda g: len(g))
-            states_array_best = np.array(best_game.states)
-            filename_best = f"replays/{RUN_NAME}/gen_{gen + wandb_starting_gen}_score_{len(best_game)}.npy"
-            np.save(filename_best, states_array_best)
-
-            rest_of_games = [g for g in games_this_generation if g != best_game]
-            if rest_of_games:
-                random_game = np.random.choice(rest_of_games)
-                states_array_random = np.array(random_game.states)
-                filename_random = f"replays/{RUN_NAME}/gen_{gen + wandb_starting_gen}_score_{len(random_game)}.npy"
-                np.save(filename_random, states_array_random)
 
     print("\nTraining complete!")
 

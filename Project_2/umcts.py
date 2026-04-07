@@ -179,24 +179,20 @@ class UMCTS:
             current_value = node.reward + (node.discount * current_value)
             node.visit_count += 1
             node.value_sum += current_value
-
-            # Update stats so we can normalize the values
             min_max.update(node.value())
 
     def extract_mcts_data(self, root_node, num_actions):
         root_value = root_node.value()
 
-        # Extract child visits and turn them into a probability distribution
         visits = []
         for action in range(num_actions):
             if action in root_node.children:
                 visits.append(root_node.children[action].visit_count)
             else:
-                visits.append(0)  # In case an action was never explored
+                visits.append(0)
 
         total_visits = sum(visits)
 
-        # Divide each visit count by the total to get a percentage
         policy_distribution = [
             v / total_visits if total_visits > 0 else 0 for v in visits
         ]
